@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Preview — RPG Studio</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#16162a;
+      --panel:#16213e;
+      --panel-2:#0f1a31;
+      --line:#1a3a6a;
+      --accent:#e94560;
+      --accent-2:#4a8aba;
+      --text:#e0e0e0;
+      --muted:#6f86a8;
+    }
+    body{background:radial-gradient(circle at top,#1d2950 0%,#12111d 58%,#0d0c14 100%);
+         color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;
+         min-height:100vh;display:flex;flex-direction:column;overflow:hidden}
+    #header{background:rgba(22,33,62,.96);border-bottom:1px solid var(--line);padding:8px 12px;
+            display:flex;align-items:center;gap:8px;flex-wrap:wrap;backdrop-filter:blur(12px)}
+    #header h1{font-size:14px;font-weight:800;color:var(--accent);letter-spacing:1px;white-space:nowrap}
+    .sep{width:1px;height:20px;background:#203a62;flex-shrink:0}
+    .tg{display:flex;gap:6px;align-items:center}
+    label{color:var(--muted);font-size:12px}
+    select,button{
+      background:#102547;border:1px solid #254d84;color:var(--text);border-radius:6px;
+      padding:5px 9px;font-size:12px
+    }
+    select{min-width:150px}
+    button{cursor:pointer;transition:background .12s,border-color .12s}
+    button:hover{background:#17345f;border-color:#4a8aba}
+    button.green{background:#1a6a3a;border-color:#2a9a5a;color:#afffcf;font-weight:700}
+    button.green:hover{background:#2a8a4a}
+    button.red{background:#6a2020;border-color:#9a3030;color:#ffb0b0}
+    button.red:hover{background:#8a3030}
+    button:disabled{opacity:.45;cursor:default}
+    a.hub-link{color:#4a8aba;font-size:12px;text-decoration:none;padding:5px 9px;
+               background:#0f3460;border:1px solid #1a4a7a;border-radius:6px}
+    a.hub-link:hover{background:#1a5a9a;border-color:#4a8aba;color:#e0e0e0}
+
+    #main{flex:1;display:flex;align-items:center;justify-content:center;padding:18px;position:relative;overflow:hidden}
+    #stage-shell{position:relative;width:min(96vw,1180px);height:min(78vh,720px);display:flex;align-items:center;justify-content:center}
+    #game-canvas{width:100%;height:100%;max-width:1180px;max-height:720px;border:1px solid #24466f;border-radius:14px;
+                 background:#0b1220;box-shadow:0 28px 100px rgba(0,0,0,.45);image-rendering:pixelated}
+    #hud{position:absolute;top:14px;left:14px;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+    .hud-card{background:rgba(13,21,39,.82);border:1px solid rgba(68,110,170,.45);border-radius:10px;
+              padding:10px 12px;backdrop-filter:blur(10px);min-width:210px}
+    .hud-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7da1cf;margin-bottom:5px}
+    .hud-line{font-size:12px;color:#d9e6ff}
+    .hud-sub{font-size:11px;color:#8aa2c7}
+    #toast{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+           background:rgba(12,18,34,.9);border:1px solid rgba(74,138,186,.55);border-radius:999px;
+           padding:8px 14px;font-size:12px;color:#d7e8ff;opacity:0;transition:opacity .16s,transform .16s;
+           pointer-events:none;white-space:nowrap}
+    #toast.visible{opacity:1;transform:translateX(-50%) translateY(-4px)}
+    #dialog-overlay{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);width:min(92%,740px);
+                    background:linear-gradient(180deg,rgba(17,25,49,.98),rgba(10,15,30,.98));
+                    border:1px solid rgba(83,129,189,.65);border-radius:16px;padding:18px 18px 16px;
+                    box-shadow:0 20px 60px rgba(0,0,0,.4);display:none}
+    #dialog-overlay.visible{display:block}
+    #dialog-speaker{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#ff758d;font-weight:800;margin-bottom:10px}
+    #dialog-text{font-size:15px;line-height:1.65;color:#eef3ff;white-space:pre-wrap;min-height:72px}
+    #dialog-choices{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+    .dialog-choice{text-align:left;background:#102547;border:1px solid #255086;border-radius:10px;padding:9px 12px;font-size:13px}
+    .dialog-choice:hover{background:#18365f}
+    #dialog-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+    #dialog-hint{font-size:11px;color:#7d98bf}
+
+    #footer{background:rgba(15,20,36,.96);border-top:1px solid var(--line);padding:6px 12px;
+            font-size:11px;color:#6b7f9e;display:flex;gap:18px;flex-wrap:wrap}
+    @media (max-width: 900px){
+      #stage-shell{height:min(72vh,620px)}
+      #dialog-overlay{width:min(94%,680px)}
+      .tg{flex-wrap:wrap}
+      select{min-width:120px}
+    }
+  </style>
+</head>
+<body>
+<div id="header">
+  <h1>&#9654; GAME PREVIEW</h1>
+  <div class="sep"></div>
+  <div class="tg">
+    <label for="map-select">Map</label>
+    <select id="map-select"></select>
+  </div>
+  <div class="tg">
+    <label for="player-select">Player</label>
+    <select id="player-select"></select>
+  </div>
+  <div class="sep"></div>
+  <div class="tg">
+    <button id="btn-reset">Reset Spawn</button>
+    <button id="btn-reset-flags">Reset Flags</button>
+    <button id="btn-reload" class="green">Reload Project</button>
+  </div>
+  <div class="sep"></div>
+  <div class="tg">
+    <a href="index.html" class="hub-link" target="_self">&#8592; Hub</a>
+  </div>
+</div>
+
+<div id="main">
+  <div id="stage-shell">
+    <canvas id="game-canvas" width="960" height="576"></canvas>
+
+    <div id="hud">
+      <div class="hud-card">
+        <div class="hud-title">Location</div>
+        <div class="hud-line" id="hud-map">No map</div>
+        <div class="hud-sub" id="hud-player">No player</div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-title">Controls</div>
+        <div class="hud-line">Move: WASD / Arrows</div>
+        <div class="hud-line">Talk: Space / Enter</div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-title">Flags</div>
+        <div class="hud-line" id="hud-flag-count">0 active</div>
+        <div class="hud-sub" id="hud-flags">No flags set</div>
+      </div>
+    </div>
+
+    <div id="dialog-overlay">
+      <div id="dialog-speaker"></div>
+      <div id="dialog-text"></div>
+      <div id="dialog-choices"></div>
+      <div id="dialog-footer">
+        <div id="dialog-hint">Enter to continue</div>
+        <button id="btn-close-dialog" class="red">Close</button>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+  </div>
+</div>
+
+<div id="footer">
+  <span id="status-mode">Mode: Ready</span>
+  <span id="status-pos">Player: —</span>
+  <span id="status-facing">Facing: down</span>
+  <span id="status-info">Preview loads project data from the suite.</span>
+</div>
+
+<script src="project-utils.js"></script>
+<script>
+'use strict';
+
+const { PROJECT_KEY, getProject } = window.ProjectUtils;
+
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const TILE_SCALE = 32;
+const PLAYER_STEP_COOLDOWN = 130;
+const MOVE_KEYS = new Map([
+  ['arrowup',    { dx: 0, dy:-1, facing:'up' }],
+  ['w',          { dx: 0, dy:-1, facing:'up' }],
+  ['arrowdown',  { dx: 0, dy: 1, facing:'down' }],
+  ['s',          { dx: 0, dy: 1, facing:'down' }],
+  ['arrowleft',  { dx:-1, dy: 0, facing:'left' }],
+  ['a',          { dx:-1, dy: 0, facing:'left' }],
+  ['arrowright', { dx: 1, dy: 0, facing:'right' }],
+  ['d',          { dx: 1, dy: 0, facing:'right' }],
+]);
+
+const state = {
+  project: null,
+  mapId: '',
+  playerId: '',
+  mode: 'empty',
+  playerTileX: 0,
+  playerTileY: 0,
+  facing: 'down',
+  moveCooldownMs: 0,
+  movePulseMs: 0,
+  triggerCooldownMs: 0,
+  flags: {},
+  toast: '',
+  toastMs: 0,
+  dialog: {
+    active: false,
+    npcId: '',
+    dialogId: '',
+    nodeId: '',
+  },
+};
+
+const spriteCache = new Map();
+let rafId = null;
+let lastFrameTime = performance.now();
+
+function activeFlagEntries() {
+  return Object.entries(state.flags || {}).filter(([, value]) => value === true);
+}
+
+function flagRequirementMet(requirement) {
+  const text = String(requirement || '').trim();
+  if (!text) return true;
+  const inverted = text.startsWith('!');
+  const key = inverted ? text.slice(1).trim() : text;
+  if (!key) return true;
+  const value = Boolean(state.flags?.[key]);
+  return inverted ? !value : value;
+}
+
+function applyFlagEffects(source) {
+  if (!source) return false;
+  let changed = false;
+  const setKey = String(source.setFlag || '').trim();
+  const clearKey = String(source.clearFlag || '').trim();
+  if (setKey && state.flags[setKey] !== true) {
+    state.flags[setKey] = true;
+    changed = true;
+  }
+  if (clearKey && state.flags[clearKey] !== false) {
+    state.flags[clearKey] = false;
+    changed = true;
+  }
+  return changed;
+}
+
+function resetFlags() {
+  state.flags = { ...(state.project?.flags || {}) };
+  updateHud();
+  render();
+}
+
+function showToast(message, duration = 1600) {
+  state.toast = message;
+  state.toastMs = duration;
+  const el = document.getElementById('toast');
+  el.textContent = message;
+  el.classList.add('visible');
+}
+
+function clearToast() {
+  state.toast = '';
+  state.toastMs = 0;
+  const el = document.getElementById('toast');
+  el.textContent = '';
+  el.classList.remove('visible');
+}
+
+function getCurrentMap() {
+  return state.project?.maps?.find(map => map.name === state.mapId) || state.project?.maps?.[0] || null;
+}
+
+function getPlayerCharacter() {
+  return state.project?.characters?.find(character => character.id === state.playerId) || state.project?.characters?.[0] || null;
+}
+
+function getMapCharacters() {
+  const map = getCurrentMap();
+  if (!map || !state.project) return [];
+  return (state.project.characters || []).filter(character =>
+    character.id === state.playerId || character.spawn?.map === map.name);
+}
+
+function getNpcCharacters() {
+  return getMapCharacters().filter(character => character.id !== state.playerId);
+}
+
+function getDialog(dialogId) {
+  return state.project?.dialogs?.find(dialog => dialog.id === dialogId) || null;
+}
+
+function getDialogNode(dialog, nodeId) {
+  return dialog?.nodes?.find(node => node.id === nodeId) || null;
+}
+
+function getCharacterName(characterId) {
+  return state.project?.characters?.find(character => character.id === characterId)?.name || '';
+}
+
+function getCollisionLayer(map) {
+  return map?.layers?.[3] || null;
+}
+
+function getMapEntrances(map) {
+  return Array.isArray(map?.entrances) ? map.entrances : [];
+}
+
+function getMapTriggers(map) {
+  return Array.isArray(map?.triggers) ? map.triggers : [];
+}
+
+function findEntrance(map, entranceId) {
+  return getMapEntrances(map).find(entry => entry.id === entranceId) || null;
+}
+
+function tileIndex(map, x, y) {
+  return y * map.mapW + x;
+}
+
+function isSolidTile(map, x, y) {
+  if (!map) return true;
+  if (x < 0 || y < 0 || x >= map.mapW || y >= map.mapH) return true;
+  const collision = getCollisionLayer(map);
+  return Boolean(collision?.tiles?.[tileIndex(map, x, y)]);
+}
+
+function getTileSprite(name) {
+  if (!name || !state.project?.sprites?.[name]) return null;
+  if (spriteCache.has(name)) return spriteCache.get(name);
+  const sprite = state.project.sprites[name];
+  const frame = sprite.frames?.[0] || [];
+  const offscreen = document.createElement('canvas');
+  offscreen.width = sprite.gridW;
+  offscreen.height = sprite.gridH;
+  const offctx = offscreen.getContext('2d');
+  frame.forEach((color, index) => {
+    if (!color) return;
+    offctx.fillStyle = color;
+    offctx.fillRect(index % sprite.gridW, Math.floor(index / sprite.gridW), 1, 1);
+  });
+  spriteCache.set(name, offscreen);
+  return offscreen;
+}
+
+function getCharacterSprite(character) {
+  if (!character || !state.project) return null;
+  const moving = state.movePulseMs > 0 && character.id === state.playerId;
+  const spriteName = moving
+    ? (character.sprites?.walk || character.sprites?.idle || '')
+    : (character.sprites?.idle || character.sprites?.walk || '');
+  if (!spriteName) return null;
+  const sprite = state.project.sprites?.[spriteName];
+  if (!sprite) return null;
+  const frameCount = Math.max(1, sprite.frames?.length || 1);
+  const animationMs = moving ? state.movePulseMs : performance.now();
+  const frameIndex = frameCount > 1
+    ? Math.floor((animationMs / 140) % frameCount)
+    : 0;
+  const cacheKey = spriteName + ':' + frameIndex;
+  if (spriteCache.has(cacheKey)) return spriteCache.get(cacheKey);
+  const frame = sprite.frames?.[frameIndex] || sprite.frames?.[0] || [];
+  const offscreen = document.createElement('canvas');
+  offscreen.width = sprite.gridW;
+  offscreen.height = sprite.gridH;
+  const offctx = offscreen.getContext('2d');
+  frame.forEach((color, index) => {
+    if (!color) return;
+    offctx.fillStyle = color;
+    offctx.fillRect(index % sprite.gridW, Math.floor(index / sprite.gridW), 1, 1);
+  });
+  spriteCache.set(cacheKey, offscreen);
+  return offscreen;
+}
+
+function findTriggerAt(map, x, y) {
+  return getMapTriggers(map).find(trigger =>
+    x >= trigger.x &&
+    y >= trigger.y &&
+    x < trigger.x + trigger.w &&
+    y < trigger.y + trigger.h) || null;
+}
+
+function findFirstOpenTile(map) {
+  if (!map) return { x: 0, y: 0 };
+  for (let y = 0; y < map.mapH; y++) {
+    for (let x = 0; x < map.mapW; x++) {
+      if (!isSolidTile(map, x, y)) return { x, y };
+    }
+  }
+  return { x: 0, y: 0 };
+}
+
+function syncSelectors() {
+  const mapSelect = document.getElementById('map-select');
+  mapSelect.innerHTML = '';
+  (state.project?.maps || []).forEach(map => {
+    const option = document.createElement('option');
+    option.value = map.name;
+    option.textContent = map.name;
+    if (map.name === state.mapId) option.selected = true;
+    mapSelect.appendChild(option);
+  });
+
+  const playerSelect = document.getElementById('player-select');
+  playerSelect.innerHTML = '';
+  (state.project?.characters || []).forEach(character => {
+    const option = document.createElement('option');
+    option.value = character.id;
+    option.textContent = character.name;
+    if (character.id === state.playerId) option.selected = true;
+    playerSelect.appendChild(option);
+  });
+}
+
+function applyPlayerSpawn() {
+  const map = getCurrentMap();
+  const player = getPlayerCharacter();
+  if (!map || !player) return;
+  if (player.spawn?.map === map.name && !isSolidTile(map, player.spawn.x, player.spawn.y)) {
+    state.playerTileX = player.spawn.x;
+    state.playerTileY = player.spawn.y;
+  } else {
+    const fallback = findFirstOpenTile(map);
+    state.playerTileX = fallback.x;
+    state.playerTileY = fallback.y;
+  }
+  state.dialog.active = false;
+  state.triggerCooldownMs = 0;
+  state.mode = 'play';
+}
+
+function chooseDefaults() {
+  const maps = state.project?.maps || [];
+  const characters = state.project?.characters || [];
+  if (!maps.length || !characters.length) {
+    state.mode = 'empty';
+    return;
+  }
+  if (!maps.some(map => map.name === state.mapId)) {
+    state.mapId = maps[0].name;
+  }
+  const players = characters.filter(character => character.type === 'player');
+  const desiredPlayer = players[0] || characters[0];
+  if (!characters.some(character => character.id === state.playerId)) {
+    state.playerId = desiredPlayer.id;
+  }
+  applyPlayerSpawn();
+}
+
+function loadProjectState() {
+  spriteCache.clear();
+  state.project = getProject();
+  state.flags = { ...(state.project?.flags || {}) };
+  chooseDefaults();
+  syncSelectors();
+  updateHud();
+  renderDialogOverlay();
+  render();
+}
+
+function updateHud() {
+  const map = getCurrentMap();
+  const player = getPlayerCharacter();
+  document.getElementById('hud-map').textContent = map ? map.name : 'No map available';
+  document.getElementById('hud-player').textContent = player
+    ? `${player.name} • ${state.playerTileX}, ${state.playerTileY}`
+    : 'No player character available';
+  document.getElementById('status-mode').textContent = `Mode: ${state.dialog.active ? 'Dialog' : (state.mode === 'play' ? 'Play' : 'Ready')}`;
+  document.getElementById('status-pos').textContent = player
+    ? `Player: ${state.playerTileX}, ${state.playerTileY}`
+    : 'Player: —';
+  document.getElementById('status-facing').textContent = `Facing: ${state.facing}`;
+  document.getElementById('status-info').textContent = map
+    ? `${getNpcCharacters().length} NPC${getNpcCharacters().length !== 1 ? 's' : ''} • ${getMapTriggers(map).length} trigger${getMapTriggers(map).length !== 1 ? 's' : ''} on ${map.name}`
+    : 'Create a map and a character to preview the game.';
+  const activeFlags = activeFlagEntries().map(([key]) => key);
+  document.getElementById('hud-flag-count').textContent = `${activeFlags.length} active`;
+  document.getElementById('hud-flags').textContent = activeFlags.length ? activeFlags.join(', ') : 'No flags set';
+}
+
+function cameraForMap(map) {
+  const viewTilesX = Math.ceil(canvas.width / TILE_SCALE);
+  const viewTilesY = Math.ceil(canvas.height / TILE_SCALE);
+  const maxStartX = Math.max(0, map.mapW - viewTilesX);
+  const maxStartY = Math.max(0, map.mapH - viewTilesY);
+  const startX = Math.max(0, Math.min(maxStartX, state.playerTileX - Math.floor(viewTilesX / 2)));
+  const startY = Math.max(0, Math.min(maxStartY, state.playerTileY - Math.floor(viewTilesY / 2)));
+  return { startX, startY, viewTilesX, viewTilesY };
+}
+
+function drawSpriteAt(spriteCanvas, x, y) {
+  if (!spriteCanvas) return;
+  ctx.drawImage(spriteCanvas, x, y, TILE_SCALE, TILE_SCALE);
+}
+
+function renderMap(map, camera) {
+  const { startX, startY, viewTilesX, viewTilesY } = camera;
+  ctx.fillStyle = '#17233f';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let y = 0; y < viewTilesY; y++) {
+    for (let x = 0; x < viewTilesX; x++) {
+      const worldX = startX + x;
+      const worldY = startY + y;
+      if (worldX >= map.mapW || worldY >= map.mapH) continue;
+      ctx.fillStyle = (worldX + worldY) % 2 === 0 ? '#213154' : '#1a2845';
+      ctx.fillRect(x * TILE_SCALE, y * TILE_SCALE, TILE_SCALE, TILE_SCALE);
+    }
+  }
+
+  for (let layerIndex = 0; layerIndex < 3; layerIndex++) {
+    const layer = map.layers[layerIndex];
+    if (!layer?.visible) continue;
+    for (let y = 0; y < viewTilesY; y++) {
+      for (let x = 0; x < viewTilesX; x++) {
+        const worldX = startX + x;
+        const worldY = startY + y;
+        if (worldX >= map.mapW || worldY >= map.mapH) continue;
+        const tileName = layer.tiles[tileIndex(map, worldX, worldY)];
+        if (!tileName) continue;
+        drawSpriteAt(getTileSprite(tileName), x * TILE_SCALE, y * TILE_SCALE);
+      }
+    }
+  }
+
+  const collision = getCollisionLayer(map);
+  if (collision?.visible) {
+    ctx.strokeStyle = 'rgba(233,69,96,0.18)';
+    for (let y = 0; y < viewTilesY; y++) {
+      for (let x = 0; x < viewTilesX; x++) {
+        const worldX = startX + x;
+        const worldY = startY + y;
+        if (worldX >= map.mapW || worldY >= map.mapH) continue;
+        if (!collision.tiles[tileIndex(map, worldX, worldY)]) continue;
+        const px = x * TILE_SCALE;
+        const py = y * TILE_SCALE;
+        ctx.fillStyle = 'rgba(233,69,96,0.10)';
+        ctx.fillRect(px, py, TILE_SCALE, TILE_SCALE);
+        ctx.strokeRect(px + 3, py + 3, TILE_SCALE - 6, TILE_SCALE - 6);
+      }
+    }
+  }
+}
+
+function renderCharacters(map, camera) {
+  const { startX, startY } = camera;
+  const characters = getMapCharacters()
+    .map(character => ({
+      character,
+      x: character.id === state.playerId ? state.playerTileX : character.spawn.x,
+      y: character.id === state.playerId ? state.playerTileY : character.spawn.y,
+    }))
+    .sort((a, b) => a.y - b.y);
+
+  characters.forEach(entry => {
+    const screenX = (entry.x - startX) * TILE_SCALE;
+    const screenY = (entry.y - startY) * TILE_SCALE;
+    if (screenX < -TILE_SCALE || screenY < -TILE_SCALE || screenX > canvas.width || screenY > canvas.height) return;
+
+    if (entry.character.id !== state.playerId && entry.character.dialogId) {
+      ctx.fillStyle = '#ffe28a';
+      ctx.beginPath();
+      ctx.arc(screenX + TILE_SCALE / 2, screenY + 6, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    drawSpriteAt(getCharacterSprite(entry.character), screenX, screenY);
+
+    if (entry.character.id === state.playerId) {
+      ctx.strokeStyle = '#afffcf';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(screenX + 3, screenY + 3, TILE_SCALE - 6, TILE_SCALE - 6);
+    }
+  });
+}
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const map = getCurrentMap();
+  const player = getPlayerCharacter();
+
+  if (!state.project) {
+    renderEmptyState('No project loaded', 'Create a project in the hub first.');
+    updateHud();
+    return;
+  }
+  if (!map) {
+    renderEmptyState('No map available', 'Create a map in the Map Editor.');
+    updateHud();
+    return;
+  }
+  if (!player) {
+    renderEmptyState('No player character', 'Create a player character and assign a spawn map.');
+    updateHud();
+    return;
+  }
+
+  const camera = cameraForMap(map);
+  renderMap(map, camera);
+  renderCharacters(map, camera);
+  renderFacingHint(camera);
+  updateHud();
+}
+
+function renderEmptyState(title, subtitle) {
+  ctx.fillStyle = '#111a2d';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#e94560';
+  ctx.font = '700 30px Segoe UI';
+  ctx.textAlign = 'center';
+  ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 10);
+  ctx.fillStyle = '#8aa2c7';
+  ctx.font = '16px Segoe UI';
+  ctx.fillText(subtitle, canvas.width / 2, canvas.height / 2 + 22);
+}
+
+function renderFacingHint(camera) {
+  const offsets = {
+    up:    { dx: 0, dy:-1 },
+    down:  { dx: 0, dy: 1 },
+    left:  { dx:-1, dy: 0 },
+    right: { dx: 1, dy: 0 },
+  };
+  const dir = offsets[state.facing];
+  const tx = state.playerTileX + dir.dx;
+  const ty = state.playerTileY + dir.dy;
+  const screenX = (tx - camera.startX) * TILE_SCALE;
+  const screenY = (ty - camera.startY) * TILE_SCALE;
+  ctx.strokeStyle = 'rgba(255,226,138,0.55)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(screenX + 6, screenY + 6, TILE_SCALE - 12, TILE_SCALE - 12);
+}
+
+function tryMove(dx, dy, facing) {
+  if (state.dialog.active || state.mode !== 'play') return;
+  const map = getCurrentMap();
+  if (!map) return;
+  state.facing = facing;
+  if (state.moveCooldownMs > 0) return;
+
+  const nextX = state.playerTileX + dx;
+  const nextY = state.playerTileY + dy;
+  const occupiedByNpc = getNpcCharacters().some(character =>
+    character.spawn.x === nextX && character.spawn.y === nextY && character.spawn.map === map.name);
+
+  if (isSolidTile(map, nextX, nextY) || occupiedByNpc) {
+    showToast('Blocked');
+    render();
+    return;
+  }
+
+  state.playerTileX = nextX;
+  state.playerTileY = nextY;
+  state.moveCooldownMs = PLAYER_STEP_COOLDOWN;
+  state.movePulseMs = 220;
+  clearToast();
+  checkTileTriggers();
+  render();
+}
+
+function transitionToMap(targetMapName, targetEntranceId) {
+  const destinationMap = state.project?.maps?.find(map => map.name === targetMapName);
+  if (!destinationMap) {
+    showToast('Target map missing');
+    return false;
+  }
+
+  state.mapId = destinationMap.name;
+  const entrance = targetEntranceId ? findEntrance(destinationMap, targetEntranceId) : null;
+  if (entrance && !isSolidTile(destinationMap, entrance.x, entrance.y)) {
+    state.playerTileX = entrance.x;
+    state.playerTileY = entrance.y;
+  } else {
+    const fallback = findFirstOpenTile(destinationMap);
+    state.playerTileX = fallback.x;
+    state.playerTileY = fallback.y;
+  }
+
+  state.dialog.active = false;
+  state.mode = 'play';
+  state.triggerCooldownMs = 240;
+  syncSelectors();
+  renderDialogOverlay();
+  showToast(`Entered ${destinationMap.name}`);
+  return true;
+}
+
+function executeTrigger(trigger) {
+  if (!trigger) return false;
+  if (!flagRequirementMet(trigger.requiredFlag)) {
+    if (trigger.blockedMessage) showToast(trigger.blockedMessage);
+    return false;
+  }
+  if (trigger.type === 'transition') {
+    if (!trigger.targetMap) {
+      showToast('Trigger needs a target map');
+      return false;
+    }
+    const moved = transitionToMap(trigger.targetMap, trigger.targetEntranceId);
+    if (moved) applyFlagEffects(trigger);
+    return moved;
+  }
+  if (trigger.type === 'dialog') {
+    if (!trigger.dialogId) {
+      showToast('Trigger dialog missing');
+      return false;
+    }
+    openDialog(trigger.dialogId, '');
+    applyFlagEffects(trigger);
+    state.triggerCooldownMs = 240;
+    return true;
+  }
+  if (trigger.type === 'message') {
+    showToast(trigger.message || trigger.name || 'Triggered');
+    applyFlagEffects(trigger);
+    state.triggerCooldownMs = 240;
+    return true;
+  }
+  return false;
+}
+
+function checkTileTriggers() {
+  if (state.dialog.active || state.triggerCooldownMs > 0) return false;
+  const map = getCurrentMap();
+  if (!map) return false;
+  const trigger = findTriggerAt(map, state.playerTileX, state.playerTileY);
+  return executeTrigger(trigger);
+}
+
+function npcInFront() {
+  const dir = {
+    up:    { dx: 0, dy:-1 },
+    down:  { dx: 0, dy: 1 },
+    left:  { dx:-1, dy: 0 },
+    right: { dx: 1, dy: 0 },
+  }[state.facing];
+  const tx = state.playerTileX + dir.dx;
+  const ty = state.playerTileY + dir.dy;
+  return getNpcCharacters().find(character => character.spawn.x === tx && character.spawn.y === ty) || null;
+}
+
+function openDialog(dialogId, npcId) {
+  const dialog = getDialog(dialogId);
+  if (!dialog) {
+    showToast('Dialog data missing');
+    return;
+  }
+  state.dialog.active = true;
+  state.dialog.dialogId = dialog.id;
+  state.dialog.npcId = npcId;
+  enterDialogNode(dialog.startNodeId || dialog.nodes[0]?.id || '');
+  state.mode = 'dialog';
+  renderDialogOverlay();
+}
+
+function closeDialog() {
+  state.dialog.active = false;
+  state.dialog.dialogId = '';
+  state.dialog.npcId = '';
+  state.dialog.nodeId = '';
+  state.mode = state.project && getCurrentMap() && getPlayerCharacter() ? 'play' : 'empty';
+  renderDialogOverlay();
+}
+
+function currentDialogNode() {
+  const dialog = getDialog(state.dialog.dialogId);
+  const node = getDialogNode(dialog, state.dialog.nodeId);
+  return { dialog, node };
+}
+
+function visibleChoicesForNode(node) {
+  return (node?.choices || []).filter(choice => flagRequirementMet(choice.requiredFlag));
+}
+
+function enterDialogNode(nodeId) {
+  state.dialog.nodeId = nodeId || '';
+  const { node } = currentDialogNode();
+  applyFlagEffects(node);
+  updateHud();
+}
+
+function speakerNameForNode(node) {
+  if (!node) return 'Narrator';
+  if (node.speakerType === 'character') return getCharacterName(node.speakerCharacterId) || 'Character';
+  if (node.speakerType === 'custom') return node.speakerName || 'Speaker';
+  return 'Narrator';
+}
+
+function renderDialogOverlay() {
+  const overlay = document.getElementById('dialog-overlay');
+  const speaker = document.getElementById('dialog-speaker');
+  const text = document.getElementById('dialog-text');
+  const choices = document.getElementById('dialog-choices');
+  const hint = document.getElementById('dialog-hint');
+
+  if (!state.dialog.active) {
+    overlay.classList.remove('visible');
+    choices.innerHTML = '';
+    return;
+  }
+
+  const { dialog, node } = currentDialogNode();
+  overlay.classList.add('visible');
+  speaker.textContent = speakerNameForNode(node);
+  text.textContent = node?.text || '(empty line)';
+  choices.innerHTML = '';
+  const visibleChoices = visibleChoicesForNode(node);
+
+  if (visibleChoices.length) {
+    hint.textContent = 'Press 1-9 or click a choice';
+    visibleChoices.forEach((choice, index) => {
+      const button = document.createElement('button');
+      button.className = 'dialog-choice';
+      button.textContent = `${index + 1}. ${choice.text || 'Continue'}`;
+      button.addEventListener('click', () => chooseDialogChoice(index));
+      choices.appendChild(button);
+    });
+  } else if (node?.next) {
+    hint.textContent = 'Press Enter / Space to continue';
+  } else {
+    hint.textContent = 'Press Enter / Space to close';
+  }
+}
+
+function advanceDialog() {
+  const { dialog, node } = currentDialogNode();
+  if (!dialog || !node) {
+    closeDialog();
+    return;
+  }
+  if (visibleChoicesForNode(node).length) return;
+  if (node.next) {
+    enterDialogNode(node.next);
+    renderDialogOverlay();
+  } else {
+    closeDialog();
+  }
+}
+
+function chooseDialogChoice(index) {
+  const { dialog, node } = currentDialogNode();
+  const choice = visibleChoicesForNode(node)[index];
+  if (!dialog || !node || !choice) return;
+  applyFlagEffects(choice);
+  if (choice.next) {
+    enterDialogNode(choice.next);
+    renderDialogOverlay();
+  } else {
+    closeDialog();
+  }
+}
+
+function tryInteract() {
+  if (state.dialog.active) {
+    advanceDialog();
+    return;
+  }
+  const npc = npcInFront();
+  if (!npc) {
+    showToast('Nobody to talk to');
+    render();
+    return;
+  }
+  if (!npc.dialogId) {
+    showToast(`${npc.name} has nothing to say yet`);
+    render();
+    return;
+  }
+  openDialog(npc.dialogId, npc.id);
+}
+
+function update(deltaMs) {
+  if (state.moveCooldownMs > 0) state.moveCooldownMs = Math.max(0, state.moveCooldownMs - deltaMs);
+  if (state.movePulseMs > 0) state.movePulseMs = Math.max(0, state.movePulseMs - deltaMs);
+  if (state.triggerCooldownMs > 0) state.triggerCooldownMs = Math.max(0, state.triggerCooldownMs - deltaMs);
+  if (state.toastMs > 0) {
+    state.toastMs = Math.max(0, state.toastMs - deltaMs);
+    if (state.toastMs === 0) clearToast();
+  }
+}
+
+function loop(now) {
+  const delta = Math.min(34, now - lastFrameTime);
+  lastFrameTime = now;
+  update(delta);
+  render();
+  rafId = requestAnimationFrame(loop);
+}
+
+function resetSpawn() {
+  applyPlayerSpawn();
+  clearToast();
+  renderDialogOverlay();
+  render();
+}
+
+document.getElementById('map-select').addEventListener('change', e => {
+  state.mapId = e.target.value;
+  resetSpawn();
+});
+
+document.getElementById('player-select').addEventListener('change', e => {
+  state.playerId = e.target.value;
+  resetSpawn();
+});
+
+document.getElementById('btn-reset').addEventListener('click', resetSpawn);
+document.getElementById('btn-reset-flags').addEventListener('click', () => {
+  resetFlags();
+  showToast('Flags reset');
+});
+document.getElementById('btn-reload').addEventListener('click', () => {
+  loadProjectState();
+  showToast('Project reloaded');
+});
+document.getElementById('btn-close-dialog').addEventListener('click', closeDialog);
+
+document.addEventListener('keydown', e => {
+  const key = e.key.toLowerCase();
+  if (MOVE_KEYS.has(key)) {
+    e.preventDefault();
+    const move = MOVE_KEYS.get(key);
+    tryMove(move.dx, move.dy, move.facing);
+    return;
+  }
+  if (key === ' ' || key === 'enter') {
+    e.preventDefault();
+    tryInteract();
+    return;
+  }
+  if (state.dialog.active && key >= '1' && key <= '9') {
+    e.preventDefault();
+    chooseDialogChoice(Number(key) - 1);
+  }
+});
+
+window.addEventListener('storage', e => {
+  if (e.key === PROJECT_KEY) loadProjectState();
+});
+
+function renderGameToText() {
+  const map = getCurrentMap();
+  const player = getPlayerCharacter();
+  const currentTrigger = map ? findTriggerAt(map, state.playerTileX, state.playerTileY) : null;
+  const npcs = getNpcCharacters().map(npc => ({
+    id: npc.id,
+    name: npc.name,
+    x: npc.spawn.x,
+    y: npc.spawn.y,
+    has_dialog: Boolean(npc.dialogId),
+  }));
+  const { dialog, node } = currentDialogNode();
+  return JSON.stringify({
+    note: 'Tile coordinates with origin at top-left; x increases right, y increases down.',
+    mode: state.dialog.active ? 'dialog' : state.mode,
+    map: map ? { name: map.name, width: map.mapW, height: map.mapH, triggers: getMapTriggers(map).length, entrances: getMapEntrances(map).length } : null,
+    player: player ? { id: player.id, name: player.name, x: state.playerTileX, y: state.playerTileY, facing: state.facing } : null,
+    npcs,
+    current_trigger: currentTrigger ? { id: currentTrigger.id, name: currentTrigger.name, type: currentTrigger.type } : null,
+    flags: { ...state.flags },
+    toast: state.toast || '',
+    dialog: state.dialog.active ? {
+      id: dialog?.id || null,
+      node_id: node?.id || null,
+      speaker: speakerNameForNode(node),
+      text: node?.text || '',
+      choices: visibleChoicesForNode(node).map((choice, index) => ({ index: index + 1, text: choice.text || 'Continue' })),
+    } : null,
+  });
+}
+
+window.render_game_to_text = renderGameToText;
+window.advanceTime = ms => {
+  const steps = Math.max(1, Math.round(ms / (1000 / 60)));
+  for (let i = 0; i < steps; i++) update(1000 / 60);
+  render();
+};
+
+loadProjectState();
+render();
+rafId = requestAnimationFrame(loop);
+</script>
+</body>
+</html>

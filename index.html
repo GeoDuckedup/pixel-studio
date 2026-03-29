@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RPG Studio</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#12101e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;
+         font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+
+    /* ── Header ── */
+    #header{background:#16213e;border-bottom:2px solid #e94560;padding:12px 20px;
+            display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0}
+    #logo{display:flex;align-items:center;gap:10px}
+    #logo .icon{font-size:24px}
+    #logo h1{font-size:20px;font-weight:800;letter-spacing:2px;color:#e94560}
+    #logo span{font-size:11px;color:#506070;letter-spacing:1px;text-transform:uppercase}
+    .header-sep{width:1px;height:30px;background:#0f3460}
+
+    #project-name-wrap{display:flex;align-items:center;gap:8px}
+    #project-name-wrap label{color:#506070;font-size:11px;text-transform:uppercase;letter-spacing:1px}
+    #project-name{background:#0f3460;border:1px solid #1a4a7a;color:#e0e0e0;border-radius:5px;
+                  padding:6px 10px;font-size:14px;font-weight:600;width:220px}
+    #project-name:focus{outline:none;border-color:#e94560}
+
+    .hbtn{background:#0f3460;border:1px solid #1a4a7a;color:#c0d0e0;border-radius:5px;
+          padding:6px 12px;cursor:pointer;font-size:12px;transition:background .12s;white-space:nowrap}
+    .hbtn:hover{background:#1a5a9a;border-color:#4a8aba}
+    .hbtn.green{background:#1a6a3a;border-color:#2a9a5a;color:#afffcf;font-weight:600}
+    .hbtn.green:hover{background:#2a8a4a}
+    .hbtn.red{background:#6a2020;border-color:#9a3030;color:#ffafaf}
+    .hbtn.red:hover{background:#8a3030}
+
+    /* ── Main layout ── */
+    #main{display:flex;flex:1;gap:0;overflow:hidden}
+
+    /* ── Tools section ── */
+    #tools-section{flex:1;padding:24px;overflow-y:auto}
+    #tools-section h2{font-size:12px;text-transform:uppercase;letter-spacing:2px;
+                       color:#506070;margin-bottom:16px}
+    #tool-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+
+    .tool-card{background:#16213e;border:1px solid #1a3a6a;border-radius:10px;padding:18px;
+               display:flex;flex-direction:column;gap:10px;transition:border-color .15s,transform .12s}
+    .tool-card:hover{border-color:#4a8aba;transform:translateY(-2px)}
+    .tool-card.available{cursor:default}
+    .tool-card.soon{opacity:0.55}
+
+    .card-icon{font-size:32px;line-height:1}
+    .card-title{font-size:15px;font-weight:700;color:#e0e0e0}
+    .card-desc{font-size:12px;color:#6070a0;line-height:1.5;flex:1}
+    .card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+    .card-badge{font-size:10px;padding:2px 8px;border-radius:20px;text-transform:uppercase;
+                letter-spacing:1px;font-weight:600}
+    .badge-ready{background:#1a4a2a;color:#4aff8a;border:1px solid #2a6a3a}
+    .badge-soon {background:#2a2a3a;color:#6070a0;border:1px solid #3a3a5a}
+    .card-open{background:#e94560;border:none;color:#fff;border-radius:5px;padding:6px 14px;
+               font-size:12px;font-weight:700;cursor:pointer;transition:background .12s}
+    .card-open:hover{background:#ff6a80}
+    .card-open:disabled{background:#2a3a5a;color:#506070;cursor:default}
+
+    /* ── Project panel ── */
+    #project-panel{width:280px;background:#16213e;border-left:1px solid #0f3460;
+                   display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+    #project-panel-header{padding:14px 14px 10px;border-bottom:1px solid #0f3460;flex-shrink:0}
+    #project-panel-header h2{font-size:12px;text-transform:uppercase;letter-spacing:2px;color:#506070}
+
+    #project-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 14px;
+                   border-bottom:1px solid #0f3460;flex-shrink:0}
+    .stat-box{background:#0f3460;border-radius:6px;padding:8px 10px}
+    .stat-val{font-size:22px;font-weight:800;color:#e94560}
+    .stat-lbl{font-size:10px;color:#506070;text-transform:uppercase;letter-spacing:1px}
+
+    #sprite-gallery-header{padding:10px 14px 6px;display:flex;align-items:center;
+                            justify-content:space-between;flex-shrink:0}
+    #sprite-gallery-header h3{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#506070}
+    #asset-controls{display:flex;gap:8px;align-items:center;padding:0 14px 8px;flex-wrap:wrap;flex-shrink:0}
+    #folder-filter{background:#0f3460;border:1px solid #1a4a7a;color:#c0d0e0;border-radius:5px;
+                   padding:4px 8px;font-size:11px;min-width:122px}
+    #sprite-gallery{flex:1;overflow-y:auto;padding:0 10px 10px}
+    #sprite-gallery::-webkit-scrollbar{width:4px}
+    #sprite-gallery::-webkit-scrollbar-track{background:#0a1020}
+    #sprite-gallery::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:2px}
+
+    .folder-section{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+    .folder-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;
+                    padding:6px 8px 2px}
+    .folder-toggle{background:none;border:none;color:#6070a0;font-size:10px;text-transform:uppercase;
+                   letter-spacing:1px;padding:0;cursor:pointer;text-align:left;flex:1}
+    .folder-toggle:hover{color:#9ab6dd}
+    .folder-actions{display:flex;gap:4px}
+    .folder-action-btn{background:#0f3460;border:1px solid #1a4a7a;color:#8090a0;border-radius:4px;
+                       padding:2px 6px;font-size:10px;cursor:pointer}
+    .folder-action-btn:hover{background:#1a5a9a;color:#e0e0e0}
+    .sprite-card{display:flex;align-items:flex-start;gap:10px;padding:7px 8px;border-radius:6px;
+                 border:1px solid transparent;cursor:pointer;transition:border-color .1s,background .1s}
+    .sprite-card:hover{border-color:#2a4a6a;background:#0f1f3a}
+    .sprite-card.dragging{opacity:0.45}
+    .sprite-card.drag-target,.folder-heading.drag-target{border-color:#ffca66;background:#21304d;border-radius:6px}
+    .sprite-thumb{flex-shrink:0;border:1px solid #1a3a6a;border-radius:4px;
+                  image-rendering:pixelated;width:36px;height:36px}
+    .sprite-info{flex:1;overflow:hidden}
+    .sprite-name{font-size:12px;color:#c0d0e0;font-weight:600;
+                 white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sprite-meta{font-size:10px;color:#506070}
+    .sprite-folder{font-size:10px;color:#6f86a8;margin-top:2px}
+    .sprite-actions{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+    .sprite-action-btn{background:#0f3460;border:1px solid #1a4a7a;color:#8090a0;
+                       border-radius:4px;padding:3px 7px;font-size:11px;cursor:pointer;flex-shrink:0}
+    .sprite-action-btn:hover{background:#1a5a9a;color:#e0e0e0}
+    .sprite-action-btn.danger{border-color:#7a2a3a;color:#d0a0aa}
+    .sprite-action-btn.danger:hover{background:#6a2020;color:#ffd6db}
+
+    #no-project-msg{padding:20px 14px;text-align:center;color:#506070;font-size:12px;line-height:1.8}
+    #no-project-msg .big{font-size:32px;display:block;margin-bottom:8px}
+
+    /* ── Tag system ── */
+    #tag-filters{display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px 4px;flex-shrink:0}
+    .tag-filter{font-size:10px;padding:2px 8px;border-radius:20px;cursor:pointer;
+                border:1px solid transparent;opacity:0.45;font-weight:600;letter-spacing:.3px;
+                transition:opacity .1s;white-space:nowrap}
+    .tag-filter:hover{opacity:0.75}
+    .tag-filter.active{opacity:1;border-color:rgba(255,255,255,0.25)}
+    .tag-filter[data-tag="all"]      {background:#1a2a4a;color:#a0b8d0;border-color:#2a4a6a}
+    .tag-filter[data-tag="tile"]     {background:#1a5a3a;color:#6fffa0}
+    .tag-filter[data-tag="character"]{background:#1a3a7a;color:#80b0ff}
+    .tag-filter[data-tag="bg"]       {background:#3a1a6a;color:#c080ff}
+    .tag-filter[data-tag="fg"]       {background:#5a1a3a;color:#ff80b0}
+    .tag-filter[data-tag="ui"]       {background:#5a3a1a;color:#ffb060}
+    .tag-filter[data-tag="item"]     {background:#4a4a1a;color:#ffee60}
+    .tag-filter[data-tag="effect"]   {background:#1a4a4a;color:#60eeff}
+    .tag-filter[data-tag="untagged"] {background:#2a2a2a;color:#707070}
+    .sprite-tags{display:flex;gap:3px;flex-wrap:wrap;margin-top:3px}
+    .sprite-tag-badge{font-size:9px;padding:1px 5px;border-radius:20px;font-weight:600}
+    .sprite-tag-badge[data-tag="tile"]     {background:#1a5a3a;color:#6fffa0}
+    .sprite-tag-badge[data-tag="character"]{background:#1a3a7a;color:#80b0ff}
+    .sprite-tag-badge[data-tag="bg"]       {background:#3a1a6a;color:#c080ff}
+    .sprite-tag-badge[data-tag="fg"]       {background:#5a1a3a;color:#ff80b0}
+    .sprite-tag-badge[data-tag="ui"]       {background:#5a3a1a;color:#ffb060}
+    .sprite-tag-badge[data-tag="item"]     {background:#4a4a1a;color:#ffee60}
+    .sprite-tag-badge[data-tag="effect"]   {background:#1a4a4a;color:#60eeff}
+
+    /* ── Empty state for gallery ── */
+    #empty-gallery{padding:16px 8px;text-align:center;color:#506070;font-size:11px;line-height:1.8}
+
+    /* ── Footer ── */
+    #footer{background:#0f1828;border-top:1px solid #0f3460;padding:6px 20px;
+            font-size:11px;color:#2a3a5a;display:flex;gap:20px}
+    #footer span{color:#3a4a6a}
+    #last-saved{margin-left:auto}
+  </style>
+</head>
+<body>
+
+<!-- ═══════ HEADER ═══════ -->
+<div id="header">
+  <div id="logo">
+    <span class="icon">&#9876;</span>
+    <div>
+      <h1>RPG STUDIO</h1>
+      <span>Game Creation Suite</span>
+    </div>
+  </div>
+  <div class="header-sep"></div>
+
+  <div id="project-name-wrap">
+    <label>Project</label>
+    <input type="text" id="project-name" placeholder="Untitled Game" maxlength="40">
+  </div>
+
+  <button class="hbtn red"   id="btn-new-project">&#43; New Project</button>
+  <button class="hbtn"       id="btn-open-project">&#128194; Open</button>
+  <button class="hbtn green" id="btn-save-project">&#128190; Save Project</button>
+  <input type="file" id="project-file-input" accept=".rpgproject,.json" style="display:none">
+
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+    <span id="last-saved" style="font-size:11px;color:#3a4a6a"></span>
+  </div>
+</div>
+
+<!-- ═══════ MAIN ═══════ -->
+<div id="main">
+
+  <!-- Tool cards -->
+  <div id="tools-section">
+    <h2>Tools</h2>
+    <div id="tool-grid">
+
+      <div class="tool-card available">
+        <div class="card-icon">&#9998;</div>
+        <div class="card-title">Pixel Art Editor</div>
+        <div class="card-desc">Draw sprites, characters, tiles, and UI elements frame by frame. Export to your project or as PNG / GIF / sprite sheet.</div>
+        <div class="card-footer">
+          <span class="card-badge badge-ready">Ready</span>
+          <button class="card-open" onclick="openTool('pixel-art-creator.html')">Open &#8594;</button>
+        </div>
+      </div>
+
+      <div class="tool-card available">
+        <div class="card-icon">&#9638;</div>
+        <div class="card-title">Tile Map Editor</div>
+        <div class="card-desc">Paint tiles from your project onto scrolling maps. Add collision layers, and stack background / midground / foreground.</div>
+        <div class="card-footer">
+          <span class="card-badge badge-ready">Ready</span>
+          <button class="card-open" onclick="openTool('map-editor.html')">Open &#8594;</button>
+        </div>
+      </div>
+
+      <div class="tool-card available">
+        <div class="card-icon">&#128100;</div>
+        <div class="card-title">Character Editor</div>
+        <div class="card-desc">Define player characters and NPCs. Attach animation sprites, set stats, assign spawn locations, and link to dialog trees.</div>
+        <div class="card-footer">
+          <span class="card-badge badge-ready">Ready</span>
+          <button class="card-open" onclick="openTool('character-editor.html')">Open &#8594;</button>
+        </div>
+      </div>
+
+      <div class="tool-card available">
+        <div class="card-icon">&#128172;</div>
+        <div class="card-title">Dialog Editor</div>
+        <div class="card-desc">Build branching NPC conversations with a visual node editor. Add choices, conditions, and item triggers.</div>
+        <div class="card-footer">
+          <span class="card-badge badge-ready">Ready</span>
+          <button class="card-open" onclick="openTool('dialog-editor.html')">Open &#8594;</button>
+        </div>
+      </div>
+
+      <div class="tool-card available">
+        <div class="card-icon">&#127748;</div>
+        <div class="card-title">Scene Composer</div>
+        <div class="card-desc">Layer backgrounds, midground tiles, foreground overlays, and characters into full game scenes with parallax.</div>
+        <div class="card-footer">
+          <span class="card-badge badge-ready">Ready</span>
+          <button class="card-open" onclick="openTool('scene-composer.html')">Open &#8594;</button>
+        </div>
+      </div>
+
+      <div class="tool-card available">
+        <div class="card-icon">&#9654;</div>
+        <div class="card-title">Game Preview</div>
+        <div class="card-desc">Play a live preview of your game in the browser. Walk around maps, trigger dialog, and test interactions.</div>
+        <div class="card-footer">
+          <span class="card-badge badge-ready">Ready</span>
+          <button class="card-open" onclick="openTool('game-preview.html')">Open &#8594;</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Project panel -->
+  <div id="project-panel">
+    <div id="project-panel-header">
+      <h2>Project Assets</h2>
+    </div>
+
+    <div id="no-project-msg" style="display:none">
+      <span class="big">&#128193;</span>
+      No project loaded.<br>Create a new project or open an existing <code>.rpgproject</code> file to get started.
+    </div>
+
+    <div id="project-content">
+      <div id="project-stats">
+        <div class="stat-box"><div class="stat-val" id="stat-sprites">0</div><div class="stat-lbl">Sprites</div></div>
+        <div class="stat-box"><div class="stat-val" id="stat-maps">0</div><div class="stat-lbl">Maps</div></div>
+        <div class="stat-box"><div class="stat-val" id="stat-chars">0</div><div class="stat-lbl">Characters</div></div>
+        <div class="stat-box"><div class="stat-val" id="stat-dialogs">0</div><div class="stat-lbl">Dialogs</div></div>
+      </div>
+
+      <div id="sprite-gallery-header">
+        <h3>Sprites</h3>
+      </div>
+      <div id="asset-controls">
+        <select id="folder-filter">
+          <option value="all">All folders</option>
+        </select>
+      </div>
+      <div id="tag-filters">
+        <span class="tag-filter active" data-tag="all">All</span>
+        <span class="tag-filter" data-tag="tile">tile</span>
+        <span class="tag-filter" data-tag="character">char</span>
+        <span class="tag-filter" data-tag="bg">bg</span>
+        <span class="tag-filter" data-tag="fg">fg</span>
+        <span class="tag-filter" data-tag="ui">ui</span>
+        <span class="tag-filter" data-tag="item">item</span>
+        <span class="tag-filter" data-tag="effect">fx</span>
+        <span class="tag-filter" data-tag="untagged">untagged</span>
+      </div>
+      <div id="sprite-gallery">
+        <div id="empty-gallery">No sprites yet.<br>Open the Pixel Art Editor and save a sprite to this project.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Footer -->
+<div id="footer">
+  <span>RPG Studio &mdash; browser-based game creation suite</span>
+  <span id="footer-save"></span>
+</div>
+
+<script src="project-utils.js"></script>
+<script>
+'use strict';
+
+const projectStore = window.ProjectUtils;
+const { PROJECT_KEY, blankProject, getProject, normalizeProject, normalizeFolderPath, slugifyName } = projectStore;
+const ASSET_FOLDER_STATE_KEY = 'rpgstudio_asset_folder_state';
+
+function setProject(project) {
+  const stored = projectStore.setProject(project);
+  updateLastSaved(stored.modified);
+  return stored;
+}
+
+function updateLastSaved(iso) {
+  if (!iso) return;
+  const d = new Date(iso);
+  const str = d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  document.getElementById('last-saved').textContent = `Auto-saved ${str}`;
+  document.getElementById('footer-save').textContent = `Last saved ${d.toLocaleString()}`;
+}
+
+// ══════════════════════════════════════════
+//  TAG FILTER
+// ══════════════════════════════════════════
+
+let activeTagFilter = 'all';
+let activeFolderFilter = 'all';
+let dragSpriteName = '';
+
+function loadFolderUiState() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ASSET_FOLDER_STATE_KEY) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveFolderUiState(state) {
+  localStorage.setItem(ASSET_FOLDER_STATE_KEY, JSON.stringify(state));
+}
+
+function isFolderCollapsed(folderName) {
+  const key = folderName || '__ungrouped__';
+  return Boolean(loadFolderUiState()[key]);
+}
+
+function setFolderCollapsed(folderName, collapsed) {
+  const key = folderName || '__ungrouped__';
+  const state = loadFolderUiState();
+  if (collapsed) state[key] = true;
+  else delete state[key];
+  saveFolderUiState(state);
+}
+
+function renameFolderState(oldFolderName, newFolderName) {
+  const state = loadFolderUiState();
+  const oldKey = oldFolderName || '__ungrouped__';
+  const newKey = newFolderName || '__ungrouped__';
+  if (state[oldKey]) state[newKey] = true;
+  delete state[oldKey];
+  saveFolderUiState(state);
+}
+
+document.querySelectorAll('.tag-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeTagFilter = btn.dataset.tag;
+    document.querySelectorAll('.tag-filter').forEach(b =>
+      b.classList.toggle('active', b.dataset.tag === activeTagFilter));
+    refreshUI();
+  });
+});
+
+document.getElementById('folder-filter').addEventListener('change', e => {
+  activeFolderFilter = e.target.value;
+  refreshUI();
+});
+
+// ══════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════
+
+function renderSpriteThumbnail(canvas, spriteData) {
+  const w = spriteData.gridW, h = spriteData.gridH;
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  // checkerboard
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    ctx.fillStyle = (x+y)%2===0 ? '#3a3a5a' : '#2a2a4a';
+    ctx.fillRect(x,y,1,1);
+  }
+  const frame = spriteData.frames && spriteData.frames[0];
+  if (frame) frame.forEach((c, i) => {
+    if (c) { ctx.fillStyle = c; ctx.fillRect(i%w, Math.floor(i/w), 1, 1); }
+  });
+}
+
+function listSpriteFolders(project) {
+  return [...new Set(Object.values(project?.sprites || {}).map(sd => sd.folder || ''))]
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function folderDisplayName(folderName) {
+  return folderName || 'Ungrouped';
+}
+
+function autoFolderNameFromSprite(targetSpriteName) {
+  const fallback = slugifyName(targetSpriteName || 'group', 'group');
+  return normalizeFolderPath(fallback);
+}
+
+function updateFolderFilter(project) {
+  const select = document.getElementById('folder-filter');
+  const folders = listSpriteFolders(project);
+  const validValues = ['all', '__ungrouped__', ...folders];
+  if (!validValues.includes(activeFolderFilter)) activeFolderFilter = 'all';
+  select.innerHTML = '';
+  [
+    { value: 'all', label: 'All folders' },
+    { value: '__ungrouped__', label: 'Ungrouped' },
+    ...folders.map(folder => ({ value: folder, label: folder })),
+  ].forEach(entry => {
+    const option = document.createElement('option');
+    option.value = entry.value;
+    option.textContent = entry.label;
+    if (entry.value === activeFolderFilter) option.selected = true;
+    select.appendChild(option);
+  });
+  select.value = activeFolderFilter;
+}
+
+function spriteMatchesFolder(spriteData) {
+  const folder = spriteData.folder || '';
+  if (activeFolderFilter === 'all') return true;
+  if (activeFolderFilter === '__ungrouped__') return !folder;
+  return folder === activeFolderFilter;
+}
+
+function collectSpriteUsage(project, spriteName) {
+  const mapRefs = [];
+  let mapTileCount = 0;
+  (project.maps || []).forEach(map => {
+    let count = 0;
+    (map.layers || []).slice(0, 3).forEach(layer => {
+      (layer.tiles || []).forEach(tile => {
+        if (tile === spriteName) count++;
+      });
+    });
+    if (count > 0) {
+      mapRefs.push({ name: map.name, count });
+      mapTileCount += count;
+    }
+  });
+
+  const charRefs = [];
+  (project.characters || []).forEach(character => {
+    Object.entries(character.sprites || {}).forEach(([slot, value]) => {
+      if (value === spriteName) charRefs.push({ name: character.name || character.id, slot });
+    });
+  });
+
+  return { mapRefs, mapTileCount, charRefs };
+}
+
+function moveSpriteToFolder(spriteName) {
+  const project = getProject();
+  const sprite = project?.sprites?.[spriteName];
+  if (!sprite) return;
+  const input = prompt(
+    'Folder path for this sprite?\nExamples: tiles/terrain, characters/player\nLeave blank to remove the folder.',
+    sprite.folder || ''
+  );
+  if (input === null) return;
+  sprite.folder = normalizeFolderPath(input);
+  setProject(project);
+  refreshUI();
+}
+
+function moveSpriteIntoFolder(spriteName, folderName) {
+  const project = getProject();
+  const sprite = project?.sprites?.[spriteName];
+  if (!project || !sprite) return false;
+  const normalized = normalizeFolderPath(folderName);
+  if ((sprite.folder || '') === normalized) return false;
+  sprite.folder = normalized;
+  setProject(project);
+  setFolderCollapsed(normalized, false);
+  refreshUI();
+  return true;
+}
+
+function groupSpriteWithTarget(spriteName, targetSpriteName) {
+  if (!spriteName || !targetSpriteName || spriteName === targetSpriteName) return false;
+  const project = getProject();
+  const dragged = project?.sprites?.[spriteName];
+  const target = project?.sprites?.[targetSpriteName];
+  if (!project || !dragged || !target) return false;
+
+  let folder = target.folder || '';
+  if (!folder) {
+    folder = autoFolderNameFromSprite(targetSpriteName);
+    target.folder = folder;
+  }
+  dragged.folder = folder;
+  setProject(project);
+  setFolderCollapsed(folder, false);
+  refreshUI();
+  return true;
+}
+
+function renameFolder(folderName) {
+  const project = getProject();
+  if (!project) return;
+  const next = prompt('Rename folder:', folderName);
+  if (next === null) return;
+  const normalized = normalizeFolderPath(next);
+  Object.values(project.sprites || {}).forEach(sprite => {
+    if ((sprite.folder || '') === folderName) sprite.folder = normalized;
+  });
+  renameFolderState(folderName, normalized);
+  setProject(project);
+  refreshUI();
+}
+
+function deleteSpriteAsset(spriteName) {
+  const project = getProject();
+  const sprite = project?.sprites?.[spriteName];
+  if (!project || !sprite) return;
+  const usage = collectSpriteUsage(project, spriteName);
+
+  (project.maps || []).forEach(map => {
+    (map.layers || []).slice(0, 3).forEach(layer => {
+      layer.tiles = (layer.tiles || []).map(tile => tile === spriteName ? null : tile);
+    });
+  });
+  (project.characters || []).forEach(character => {
+    Object.keys(character.sprites || {}).forEach(slot => {
+      if (character.sprites[slot] === spriteName) character.sprites[slot] = '';
+    });
+  });
+  delete project.sprites[spriteName];
+  if (localStorage.getItem('rpgstudio_openSprite') === spriteName) {
+    localStorage.removeItem('rpgstudio_openSprite');
+  }
+  setProject(project);
+  refreshUI();
+}
+
+function buildSpriteCard(name, sd) {
+  const card = document.createElement('div');
+  card.className = 'sprite-card';
+  card.draggable = true;
+  card.dataset.spriteName = name;
+
+  const thumb = document.createElement('canvas');
+  thumb.className = 'sprite-thumb';
+  renderSpriteThumbnail(thumb, sd);
+
+  const info = document.createElement('div');
+  info.className = 'sprite-info';
+
+  const title = document.createElement('div');
+  title.className = 'sprite-name';
+  title.textContent = name;
+
+  const meta = document.createElement('div');
+  meta.className = 'sprite-meta';
+  meta.textContent = `${sd.gridW}×${sd.gridH} · ${(sd.frames||[]).length} frame${(sd.frames||[]).length!==1?'s':''}`;
+
+  const folder = document.createElement('div');
+  folder.className = 'sprite-folder';
+  folder.textContent = sd.folder || 'Ungrouped';
+
+  const tags = document.createElement('div');
+  tags.className = 'sprite-tags';
+  (sd.tags || []).forEach(tag => {
+    const badge = document.createElement('span');
+    badge.className = 'sprite-tag-badge';
+    badge.dataset.tag = tag;
+    badge.textContent = tag;
+    tags.appendChild(badge);
+  });
+
+  info.append(title, meta, folder, tags);
+
+  const actions = document.createElement('div');
+  actions.className = 'sprite-actions';
+
+  const editBtn = document.createElement('button');
+  editBtn.className = 'sprite-action-btn';
+  editBtn.textContent = 'Edit';
+  editBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    localStorage.setItem('rpgstudio_openSprite', name);
+    openTool('pixel-art-creator.html');
+  });
+
+  const moveBtn = document.createElement('button');
+  moveBtn.className = 'sprite-action-btn';
+  moveBtn.textContent = 'Move';
+  moveBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    moveSpriteToFolder(name);
+  });
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'sprite-action-btn danger';
+  deleteBtn.textContent = 'Delete';
+  deleteBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    deleteSpriteAsset(name);
+  });
+
+  actions.append(editBtn, moveBtn, deleteBtn);
+  card.append(thumb, info, actions);
+  card.addEventListener('dragstart', e => {
+    dragSpriteName = name;
+    card.classList.add('dragging');
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', name);
+    }
+  });
+  card.addEventListener('dragend', () => {
+    dragSpriteName = '';
+    card.classList.remove('dragging');
+    document.querySelectorAll('.drag-target').forEach(el => el.classList.remove('drag-target'));
+  });
+  card.addEventListener('dragover', e => {
+    if (!dragSpriteName || dragSpriteName === name) return;
+    e.preventDefault();
+    card.classList.add('drag-target');
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  });
+  card.addEventListener('dragleave', () => card.classList.remove('drag-target'));
+  card.addEventListener('drop', e => {
+    if (!dragSpriteName || dragSpriteName === name) return;
+    e.preventDefault();
+    card.classList.remove('drag-target');
+    groupSpriteWithTarget(dragSpriteName, name);
+  });
+  return card;
+}
+
+function buildFolderSection(folderName) {
+  const section = document.createElement('div');
+  section.className = 'folder-section';
+  section.dataset.folderName = folderName;
+
+  const heading = document.createElement('div');
+  heading.className = 'folder-heading';
+
+  const title = document.createElement('button');
+  title.type = 'button';
+  title.className = 'folder-toggle';
+  title.textContent = `${isFolderCollapsed(folderName) ? '▸' : '▾'} ${folderDisplayName(folderName)}`;
+  title.addEventListener('click', () => {
+    setFolderCollapsed(folderName, !isFolderCollapsed(folderName));
+    refreshUI();
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'folder-actions';
+
+  const renameBtn = document.createElement('button');
+  renameBtn.className = 'folder-action-btn';
+  renameBtn.textContent = 'Rename';
+  renameBtn.disabled = !folderName;
+  renameBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    renameFolder(folderName);
+  });
+
+  actions.appendChild(renameBtn);
+  heading.append(title, actions);
+  heading.addEventListener('dragover', e => {
+    if (!dragSpriteName) return;
+    e.preventDefault();
+    heading.classList.add('drag-target');
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  });
+  heading.addEventListener('dragleave', () => heading.classList.remove('drag-target'));
+  heading.addEventListener('drop', e => {
+    if (!dragSpriteName) return;
+    e.preventDefault();
+    heading.classList.remove('drag-target');
+    moveSpriteIntoFolder(dragSpriteName, folderName);
+  });
+
+  section.appendChild(heading);
+  return section;
+}
+
+function refreshUI() {
+  const project = getProject();
+  const noMsg       = document.getElementById('no-project-msg');
+  const content     = document.getElementById('project-content');
+
+  if (!project) {
+    noMsg.style.display = 'block';
+    content.style.display = 'none';
+    document.getElementById('project-name').value = '';
+    return;
+  }
+
+  noMsg.style.display = 'none';
+  content.style.display = 'block';
+
+  document.getElementById('project-name').value = project.name || '';
+
+  // Stats
+  const sprites = Object.keys(project.sprites || {});
+  document.getElementById('stat-sprites').textContent  = sprites.length;
+  document.getElementById('stat-maps').textContent     = (project.maps    || []).length;
+  document.getElementById('stat-chars').textContent    = (project.characters || []).length;
+  document.getElementById('stat-dialogs').textContent  = (project.dialogs || []).length;
+  updateFolderFilter(project);
+
+  // Sprite gallery
+  const gallery = document.getElementById('sprite-gallery');
+  const emptyEl = document.getElementById('empty-gallery');
+  gallery.innerHTML = '';
+  gallery.appendChild(emptyEl);
+
+  // Apply tag filter
+  const filtered = sprites.filter(name => {
+    const tags = project.sprites[name].tags || [];
+    if (activeTagFilter === 'all')      return true;
+    if (activeTagFilter === 'untagged') return tags.length === 0;
+    return tags.includes(activeTagFilter);
+  }).filter(name => spriteMatchesFolder(project.sprites[name]))
+    .sort((a, b) => {
+      const folderA = project.sprites[a].folder || '';
+      const folderB = project.sprites[b].folder || '';
+      if (folderA !== folderB) return folderA.localeCompare(folderB);
+      return a.localeCompare(b);
+    });
+
+  if (filtered.length === 0) {
+    emptyEl.style.display = 'block';
+    emptyEl.textContent = sprites.length === 0
+      ? 'No sprites yet.\nOpen the Pixel Art Editor and save a sprite to this project.'
+      : 'No sprites match the current filters.';
+  } else {
+    emptyEl.style.display = 'none';
+    let currentFolder = null;
+    let currentSection = null;
+    filtered.forEach(name => {
+      const sd = project.sprites[name];
+      const folderName = sd.folder || '';
+      if (folderName !== currentFolder) {
+        currentFolder = folderName;
+        currentSection = buildFolderSection(folderName);
+        gallery.appendChild(currentSection);
+      }
+      if (!isFolderCollapsed(folderName) && currentSection) {
+        currentSection.appendChild(buildSpriteCard(name, sd));
+      }
+    });
+  }
+
+  updateLastSaved(project.modified);
+}
+
+// ══════════════════════════════════════════
+//  PROJECT NAME EDIT
+// ══════════════════════════════════════════
+
+document.getElementById('project-name').addEventListener('input', e => {
+  const project = getProject();
+  if (!project) return;
+  project.name = e.target.value || 'Untitled Game';
+  setProject(project);
+});
+
+// ══════════════════════════════════════════
+//  NEW / OPEN / SAVE
+// ══════════════════════════════════════════
+
+document.getElementById('btn-new-project').addEventListener('click', () => {
+  const project = getProject();
+  if (project && (Object.keys(project.sprites||{}).length > 0 ||
+      (project.maps||[]).length > 0)) {
+    if (!confirm('Create a new project? The current project will be replaced in memory.\n\nMake sure you\'ve saved your current project file first.')) return;
+  }
+  const name = prompt('Project name:', 'Untitled Game') || 'Untitled Game';
+  setProject(blankProject(name));
+  refreshUI();
+});
+
+document.getElementById('btn-open-project').addEventListener('click', () =>
+  document.getElementById('project-file-input').click());
+
+document.getElementById('project-file-input').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    let project;
+    try { project = JSON.parse(ev.target.result); }
+    catch { alert('Could not read file. Make sure it\'s a valid .rpgproject file.'); return; }
+    setProject(normalizeProject(project));
+    refreshUI();
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+document.getElementById('btn-save-project').addEventListener('click', () => {
+  const project = getProject();
+  if (!project) { alert('No project to save. Create a new project first.'); return; }
+  const json = JSON.stringify(project, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const safeName = (project.name || 'untitled').replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
+  a.download = safeName + '.rpgproject';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+// ══════════════════════════════════════════
+//  OPEN TOOL
+// ══════════════════════════════════════════
+
+function openTool(filename) {
+  window.location.href = filename;
+}
+
+// ══════════════════════════════════════════
+//  LISTEN FOR CHANGES FROM OTHER TABS
+// ══════════════════════════════════════════
+
+window.addEventListener('storage', e => {
+  if (e.key === PROJECT_KEY) refreshUI();
+});
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+
+// If no project exists yet, create a blank default one so the UI isn't empty
+if (!getProject()) {
+  setProject(blankProject('Untitled Game'));
+}
+refreshUI();
+</script>
+</body>
+</html>

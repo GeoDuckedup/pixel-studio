@@ -1,0 +1,1704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Map Editor — RPG Studio</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;
+         font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+
+    /* ── Header ── */
+    #header{background:#16213e;border-bottom:1px solid #0f3460;padding:6px 10px;
+            display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+    #header h1{font-size:14px;font-weight:700;color:#e94560;letter-spacing:1px;white-space:nowrap}
+    .sep{width:1px;height:20px;background:#0f3460;flex-shrink:0}
+    .tg{display:flex;gap:3px;align-items:center}
+    button{background:#0f3460;border:1px solid #1a4a7a;color:#c0d0e0;border-radius:5px;
+           padding:4px 9px;cursor:pointer;font-size:12px;transition:background .12s;white-space:nowrap}
+    button:hover{background:#1a5a9a;border-color:#4a8aba}
+    button.active{background:#e94560;border-color:#ff6a80;color:#fff}
+    button.icon-btn{padding:4px 7px;font-size:14px}
+    button.green{background:#1a6a3a;border-color:#2a9a5a;color:#afffcf;font-weight:600}
+    button.green:hover{background:#2a8a4a}
+    select,input[type=number],input[type=text]{background:#0f3460;border:1px solid #1a4a7a;
+      color:#c0d0e0;border-radius:5px;padding:4px 6px;font-size:12px}
+    input[type=number]{width:50px;text-align:center}
+    input[type=text]{width:140px}
+    label{color:#8090a0;font-size:12px}
+    a.hub-link{color:#4a8aba;font-size:12px;text-decoration:none;padding:4px 8px;
+               background:#0f3460;border:1px solid #1a4a7a;border-radius:5px;white-space:nowrap}
+    a.hub-link:hover{background:#1a5a9a;border-color:#4a8aba;color:#e0e0e0}
+
+    /* ── Main ── */
+    #main{display:flex;flex:1;overflow:hidden}
+
+    /* ── Tile panel ── */
+    #tile-panel{width:152px;background:#16213e;border-right:1px solid #0f3460;
+                display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+    #tile-panel-header{padding:8px 8px 5px;border-bottom:1px solid #0f3460;flex-shrink:0;
+                       display:flex;align-items:center;justify-content:space-between}
+    #tile-panel-header span{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#506070}
+    #tile-count{font-size:11px;color:#4a8aba;font-weight:600}
+    #tile-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;
+               gap:4px;padding:6px;align-content:start}
+    #tile-grid::-webkit-scrollbar{width:4px}
+    #tile-grid::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:2px}
+    .tile-cell{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;
+               border-radius:5px;border:2px solid transparent;cursor:pointer;
+               transition:border-color .1s,background .1s}
+    .tile-cell:hover{background:#0f1f3a;border-color:#2a4a6a}
+    .tile-cell.selected{border-color:#e94560;background:#1a0f1f}
+    .tile-cell canvas{image-rendering:pixelated;width:52px;height:52px;
+                      border-radius:3px;border:1px solid #1a3a6a}
+    .tile-cell .tile-name{font-size:9px;color:#6070a0;overflow:hidden;text-overflow:ellipsis;
+                           white-space:nowrap;width:100%;text-align:center}
+    #no-tiles-msg{padding:14px 10px;text-align:center;color:#506070;font-size:11px;
+                  line-height:1.9;display:flex;flex-direction:column;gap:8px;align-items:center}
+
+    /* ── Map area ── */
+    #map-area{flex:1;overflow:auto;
+              background:repeating-conic-gradient(#1c1c2e 0% 25%,#161626 0% 50%) 0 0/16px 16px}
+    #map-area::-webkit-scrollbar{width:8px;height:8px}
+    #map-area::-webkit-scrollbar-track{background:#0a1020}
+    #map-area::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:4px}
+    #map-canvas{display:block;image-rendering:pixelated;cursor:crosshair}
+
+    /* ── Right panel ── */
+    #right-panel{width:162px;background:#16213e;border-left:1px solid #0f3460;
+                 display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+    .panel-section{border-bottom:1px solid #0f3460;flex-shrink:0}
+    .panel-section-title{padding:8px 10px 4px;font-size:10px;text-transform:uppercase;
+                          letter-spacing:1px;color:#506070}
+
+    /* Layer list */
+    #layer-list{padding:4px 6px 6px}
+    .layer-row{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:5px;
+               cursor:pointer;border:1px solid transparent;transition:border-color .1s,background .1s;
+               margin-bottom:2px}
+    .layer-row:hover{background:#0f1f3a;border-color:#2a4a6a}
+    .layer-row.active{background:#1a0f2a;border-color:#e94560}
+    .layer-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+    .layer-name{flex:1;font-size:12px;color:#c0d0e0}
+    .layer-row.active .layer-name{color:#ff80a0;font-weight:600}
+    .layer-hotkey{font-size:10px;color:#3a5a7a;margin-right:2px}
+    .layer-vis{background:none;border:none;color:#506070;cursor:pointer;
+               font-size:12px;padding:0 2px;line-height:1}
+    .layer-vis:hover{color:#e0e0e0}
+    .layer-vis.hidden{opacity:0.3}
+
+    /* Map list */
+    #map-list-wrap{max-height:180px;overflow-y:auto;padding:4px 6px}
+    #map-list-wrap::-webkit-scrollbar{width:4px}
+    #map-list-wrap::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:2px}
+    .map-row{display:flex;align-items:center;justify-content:space-between;padding:5px 6px;
+             border-radius:5px;border:1px solid transparent;cursor:pointer;margin-bottom:2px;
+             transition:border-color .1s,background .1s}
+    .map-row:hover{background:#0f1f3a;border-color:#2a4a6a}
+    .map-row.active{border-color:#e94560;background:#1a0f1f}
+    .map-row-name{font-size:12px;color:#c0d0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .map-row-meta{font-size:10px;color:#506070}
+    .map-del{background:none;border:none;color:#506070;cursor:pointer;font-size:11px;
+             padding:1px 3px;border-radius:3px;flex-shrink:0}
+    .map-del:hover{color:#e94560;background:#2a0f1a}
+
+    /* Event panel */
+    #event-panel{flex:1;overflow-y:auto;padding:6px}
+    #event-panel::-webkit-scrollbar{width:4px}
+    #event-panel::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:2px}
+    .event-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+    .event-toolbar button{padding:6px 4px;font-size:11px}
+    .event-toolbar .wide{grid-column:1 / -1}
+    .event-list{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+    .event-row{padding:6px 7px;border-radius:6px;border:1px solid transparent;background:#10223d;cursor:pointer}
+    .event-row:hover{border-color:#2a4a6a;background:#143055}
+    .event-row.active{border-color:#e94560;background:#261324}
+    .event-row-title{font-size:12px;color:#d8e7ff;display:flex;justify-content:space-between;gap:6px}
+    .event-row-meta{font-size:10px;color:#6f86a8;margin-top:3px}
+    .event-badge{font-size:10px;text-transform:uppercase;letter-spacing:.7px;padding:2px 6px;border-radius:999px}
+    .badge-entrance{background:#123d58;color:#80e3ff}
+    .badge-transition{background:#2d235c;color:#c0a4ff}
+    .badge-dialog{background:#3e2a5e;color:#ffb0ff}
+    .badge-message{background:#59411d;color:#ffd68f}
+    .event-empty{font-size:11px;color:#506070;padding:10px 6px;text-align:center}
+    .event-editor{border-top:1px solid #203d62;padding-top:10px;display:flex;flex-direction:column;gap:9px}
+    .event-editor-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#506070}
+    .event-field{display:flex;flex-direction:column;gap:4px}
+    .event-field label{font-size:11px;color:#8090a0}
+    .event-field textarea,
+    .event-field select,
+    .event-field input[type=text],
+    .event-field input[type=number]{width:100%}
+    .event-field textarea{min-height:68px;resize:vertical;background:#0f3460;border:1px solid #1a4a7a;
+      color:#c0d0e0;border-radius:5px;padding:6px;font-size:12px}
+    .event-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+    /* Status bar */
+    #statusbar{background:#16213e;border-top:1px solid #0f3460;padding:3px 10px;
+               font-size:11px;color:#506070;display:flex;gap:14px;flex-shrink:0}
+
+    /* Tooltip */
+    [data-tip]{position:relative}
+    [data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100%+4px);
+      left:50%;transform:translateX(-50%);background:#000c;color:#fff;padding:2px 6px;
+      border-radius:4px;white-space:nowrap;font-size:11px;pointer-events:none;z-index:100}
+  </style>
+</head>
+<body>
+
+<!-- ═══════ HEADER ═══════ -->
+<div id="header">
+  <h1>&#9638; MAP EDITOR</h1>
+  <div class="sep"></div>
+
+  <div class="tg">
+    <button class="icon-btn active" data-tool="pencil" data-tip="Pencil (P)">&#9998;</button>
+    <button class="icon-btn"        data-tool="eraser" data-tip="Eraser (E)">&#9003;</button>
+    <button class="icon-btn"        data-tool="fill"   data-tip="Fill (F)">&#9724;</button>
+    <button class="icon-btn"        data-tool="rect"   data-tip="Rectangle (R)">&#9645;</button>
+  </div>
+  <div class="sep"></div>
+
+  <div class="tg">
+    <button class="icon-btn" id="btn-zoom-out" data-tip="Zoom Out (-)">&#8722;</button>
+    <span id="zoom-label" style="color:#8090a0;min-width:40px;text-align:center;font-size:12px">32px</span>
+    <button class="icon-btn" id="btn-zoom-in"  data-tip="Zoom In (+)">&#43;</button>
+  </div>
+  <div class="sep"></div>
+
+  <div class="tg">
+    <label>Map</label>
+    <input type="text" id="map-name" value="Untitled Map">
+  </div>
+  <div class="tg">
+    <label>W</label>
+    <input type="number" id="map-w" value="20" min="4" max="64">
+    <label>H</label>
+    <input type="number" id="map-h" value="15" min="4" max="48">
+    <button id="btn-resize" data-tip="Apply new dimensions">Resize</button>
+  </div>
+  <div class="sep"></div>
+
+  <div class="tg">
+    <button id="btn-grid" data-tip="Toggle Grid (G)">Grid &#10003;</button>
+    <button id="btn-undo" class="icon-btn" data-tip="Undo (Ctrl+Z)">&#8630;</button>
+    <button id="btn-redo" class="icon-btn" data-tip="Redo (Ctrl+Y)">&#8631;</button>
+  </div>
+  <div class="sep"></div>
+
+  <div class="tg">
+    <button id="btn-new-map">&#43; New</button>
+    <button id="btn-import-map-image">&#128444; Import Image</button>
+    <button id="btn-save" class="green" data-tip="Save map to project (Ctrl+S)">&#128190; Save</button>
+    <a href="index.html" class="hub-link" target="_self">&#8592; Hub</a>
+  </div>
+</div>
+<input type="file" id="map-image-input" accept="image/png,image/jpeg,image/webp" style="display:none">
+
+<!-- ═══════ MAIN ═══════ -->
+<div id="main">
+
+  <!-- Tile picker -->
+  <div id="tile-panel">
+    <div id="tile-panel-header">
+      <span>Tiles</span>
+      <span id="tile-count">0</span>
+    </div>
+    <div id="tile-grid"></div>
+  </div>
+
+  <!-- Map canvas -->
+  <div id="map-area">
+    <canvas id="map-canvas"></canvas>
+  </div>
+
+  <!-- Layers + maps -->
+  <div id="right-panel">
+    <div class="panel-section">
+      <div class="panel-section-title">Layers <span style="color:#3a5a7a">(1–4)</span></div>
+      <div id="layer-list"></div>
+    </div>
+    <div class="panel-section">
+      <div class="panel-section-title">Maps in Project</div>
+    </div>
+    <div id="map-list-wrap"></div>
+    <div class="panel-section">
+      <div class="panel-section-title">Entrances & Triggers</div>
+    </div>
+    <div id="event-panel"></div>
+  </div>
+
+</div>
+
+<!-- Status bar -->
+<div id="statusbar">
+  <span id="st-tool">Tool: Pencil</span>
+  <span id="st-layer">Layer: Background</span>
+  <span id="st-pos">Cursor: —</span>
+  <span id="st-tile">Tile: none</span>
+  <span id="st-event">Marker: none</span>
+  <span id="st-size">Map: 20×15</span>
+</div>
+
+<script src="project-utils.js"></script>
+<script>
+'use strict';
+
+const {
+  PROJECT_KEY,
+  blankProject,
+  drawImageToCanvas,
+  frameKey,
+  getProject,
+  imageDataToFrame,
+  loadImageFile,
+  normalizeMapData,
+  setProject,
+  slugifyName,
+} = window.ProjectUtils;
+
+// ══════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════
+
+const CELL_SIZES    = [8, 12, 16, 24, 32, 48, 64];
+const LAYER_NAMES   = ['Background', 'Midground', 'Foreground', 'Collision'];
+const LAYER_COLORS  = ['#4a8aba', '#5aaa6a', '#cc9944', '#e94560'];
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+
+let cellSizeIdx = 4; // index into CELL_SIZES → 32px default
+
+const state = {
+  mapW: 20, mapH: 15,
+  cellSize: 32,
+  showGrid: true,
+  tool: 'pencil',
+  activeLayer: 0,
+  activeTile: null,
+  layers: [],
+  history: [], historyIndex: -1,
+  isDrawing: false,
+  lastTx: null, lastTy: null,
+  rectStart: null,
+  hoverTx: -1, hoverTy: -1,
+  loadedMapName: null,
+  didMutate: false,
+  entrances: [],
+  triggers: [],
+  selectedMarkerKind: '',
+  selectedMarkerId: '',
+  placingMarker: false,
+};
+
+// ══════════════════════════════════════════════
+//  LAYER / MAP HELPERS
+// ══════════════════════════════════════════════
+
+function emptyLayer(name, w, h) {
+  return { name, visible: true, tiles: new Array(w * h).fill(null) };
+}
+
+function initLayers(w, h) {
+  state.layers = LAYER_NAMES.map(name => emptyLayer(name, w, h));
+}
+
+function newMarkerId(prefix) {
+  return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5);
+}
+
+function blankEntrance() {
+  return { id: newMarkerId('entrance'), name: 'Entrance', x: 0, y: 0 };
+}
+
+function blankTrigger() {
+  return {
+    id: newMarkerId('trigger'),
+    name: 'New Trigger',
+    type: 'transition',
+    x: 0,
+    y: 0,
+    w: 1,
+    h: 1,
+    targetMap: '',
+    targetEntranceId: '',
+    dialogId: '',
+    message: '',
+    requiredFlag: '',
+    blockedMessage: '',
+    setFlag: '',
+    clearFlag: '',
+  };
+}
+
+function tileIdx(tx, ty) { return ty * state.mapW + tx; }
+function inBounds(tx, ty) { return tx >= 0 && ty >= 0 && tx < state.mapW && ty < state.mapH; }
+function clampTileX(value) { return Math.max(0, Math.min(state.mapW - 1, parseInt(value) || 0)); }
+function clampTileY(value) { return Math.max(0, Math.min(state.mapH - 1, parseInt(value) || 0)); }
+function clampSpanW(value) { return Math.max(1, Math.min(state.mapW, parseInt(value) || 1)); }
+function clampSpanH(value) { return Math.max(1, Math.min(state.mapH, parseInt(value) || 1)); }
+
+// ══════════════════════════════════════════════
+//  CANVAS
+// ══════════════════════════════════════════════
+
+const canvas = document.getElementById('map-canvas');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width  = state.mapW * state.cellSize;
+  canvas.height = state.mapH * state.cellSize;
+}
+
+// ══════════════════════════════════════════════
+//  TILE SPRITE CACHE
+// ══════════════════════════════════════════════
+
+const tileCache = new Map();
+
+function getTileCanvas(spriteId) {
+  if (tileCache.has(spriteId)) return tileCache.get(spriteId);
+  const project = getProject();
+  const sd = project?.sprites?.[spriteId];
+  if (!sd) return null;
+  const c = document.createElement('canvas');
+  c.width = sd.gridW; c.height = sd.gridH;
+  const cc = c.getContext('2d');
+  (sd.frames?.[0] || []).forEach((col, i) => {
+    if (col) { cc.fillStyle = col; cc.fillRect(i % sd.gridW, Math.floor(i / sd.gridW), 1, 1); }
+  });
+  tileCache.set(spriteId, c);
+  return c;
+}
+
+function esc(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function cloneEntrances(entrances) {
+  return entrances.map(entry => ({ ...entry }));
+}
+
+function cloneTriggers(triggers) {
+  return triggers.map(trigger => ({ ...trigger }));
+}
+
+function getSelectedMarker() {
+  if (state.selectedMarkerKind === 'entrance') {
+    return state.entrances.find(entry => entry.id === state.selectedMarkerId) || null;
+  }
+  if (state.selectedMarkerKind === 'trigger') {
+    return state.triggers.find(trigger => trigger.id === state.selectedMarkerId) || null;
+  }
+  return null;
+}
+
+function selectMarker(kind, id) {
+  state.selectedMarkerKind = kind || '';
+  state.selectedMarkerId = id || '';
+  updateMarkerStatus();
+  buildEventPanel();
+  render();
+}
+
+function ensureSelectedMarker() {
+  const selected = getSelectedMarker();
+  if (selected) return selected;
+  if (state.entrances.length) {
+    state.selectedMarkerKind = 'entrance';
+    state.selectedMarkerId = state.entrances[0].id;
+    return state.entrances[0];
+  }
+  if (state.triggers.length) {
+    state.selectedMarkerKind = 'trigger';
+    state.selectedMarkerId = state.triggers[0].id;
+    return state.triggers[0];
+  }
+  state.selectedMarkerKind = '';
+  state.selectedMarkerId = '';
+  return null;
+}
+
+function updateMarkerStatus() {
+  const selected = ensureSelectedMarker();
+  const base = selected
+    ? `${state.selectedMarkerKind === 'entrance' ? 'Entrance' : 'Trigger'}: ${selected.name || 'Unnamed'}`
+    : 'Marker: none';
+  document.getElementById('st-event').textContent = state.placingMarker
+    ? `${base} (click map to place)`
+    : base;
+}
+
+function commitMarkerChange(mutator, options = {}) {
+  const marker = getSelectedMarker();
+  if (!marker) return false;
+  const before = JSON.stringify(marker);
+  mutator(marker);
+  if (state.selectedMarkerKind === 'entrance') {
+    marker.x = clampTileX(marker.x);
+    marker.y = clampTileY(marker.y);
+  } else if (state.selectedMarkerKind === 'trigger') {
+    marker.x = clampTileX(marker.x);
+    marker.y = clampTileY(marker.y);
+    marker.w = clampSpanW(marker.w);
+    marker.h = clampSpanH(marker.h);
+    marker.targetMap = marker.type === 'transition' ? (marker.targetMap || '') : '';
+    marker.targetEntranceId = marker.type === 'transition' ? (marker.targetEntranceId || '') : '';
+    marker.dialogId = marker.type === 'dialog' ? (marker.dialogId || '') : '';
+    marker.message = marker.type === 'message' ? (marker.message || '') : '';
+  }
+  const after = JSON.stringify(marker);
+  if (before === after) return false;
+  saveHistory();
+  updateMarkerStatus();
+  if (options.rebuild !== false) buildEventPanel();
+  render();
+  return true;
+}
+
+// ══════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════
+
+function render() {
+  const { mapW, mapH, cellSize, showGrid, layers, hoverTx, hoverTy, tool,
+          activeTile, rectStart, activeLayer, isDrawing } = state;
+  const W = mapW * cellSize, H = mapH * cellSize;
+  ctx.clearRect(0, 0, W, H);
+
+  // Checkerboard — shows where tiles are transparent
+  for (let y = 0; y < mapH; y++) for (let x = 0; x < mapW; x++) {
+    ctx.fillStyle = (x + y) % 2 === 0 ? '#252535' : '#1e1e2e';
+    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+  }
+
+  // Draw layers 0–2 (bg → mg → fg)
+  for (let li = 0; li < 3; li++) {
+    const layer = layers[li];
+    if (!layer.visible) continue;
+    layer.tiles.forEach((tid, i) => {
+      if (!tid) return;
+      const tx = i % mapW, ty = Math.floor(i / mapW);
+      const tc = getTileCanvas(tid);
+      if (!tc) return;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(tc, tx * cellSize, ty * cellSize, cellSize, cellSize);
+    });
+  }
+
+  // Collision layer — red X overlay
+  if (layers[3].visible) {
+    layers[3].tiles.forEach((solid, i) => {
+      if (!solid) return;
+      const tx = i % mapW, ty = Math.floor(i / mapW);
+      const px = tx * cellSize, py = ty * cellSize;
+      ctx.fillStyle = 'rgba(255,40,40,0.28)';
+      ctx.fillRect(px, py, cellSize, cellSize);
+      ctx.strokeStyle = 'rgba(255,80,80,0.7)';
+      ctx.lineWidth = 1.5;
+      const m = Math.max(3, cellSize * 0.15);
+      ctx.beginPath();
+      ctx.moveTo(px + m, py + m);           ctx.lineTo(px + cellSize - m, py + cellSize - m);
+      ctx.moveTo(px + cellSize - m, py + m); ctx.lineTo(px + m, py + cellSize - m);
+      ctx.stroke();
+    });
+  }
+
+  renderMarkerOverlays();
+
+  // Rect preview while dragging
+  if (rectStart && isDrawing && hoverTx >= 0) {
+    const [sx, sy] = rectStart;
+    const minX = Math.min(sx, hoverTx), maxX = Math.max(sx, hoverTx);
+    const minY = Math.min(sy, hoverTy), maxY = Math.max(sy, hoverTy);
+    const rw = (maxX - minX + 1) * cellSize, rh = (maxY - minY + 1) * cellSize;
+    const rx = minX * cellSize,               ry = minY * cellSize;
+
+    if (activeTile && activeLayer < 3 && tool !== 'eraser') {
+      const tc = getTileCanvas(activeTile);
+      if (tc) {
+        ctx.globalAlpha = 0.5; ctx.imageSmoothingEnabled = false;
+        for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++)
+          ctx.drawImage(tc, x * cellSize, y * cellSize, cellSize, cellSize);
+        ctx.globalAlpha = 1;
+      }
+    }
+    if (activeLayer === 3 && tool !== 'eraser') {
+      ctx.fillStyle = 'rgba(255,60,60,0.25)';
+      ctx.fillRect(rx, ry, rw, rh);
+    }
+    ctx.strokeStyle = '#e94560'; ctx.lineWidth = 2;
+    ctx.strokeRect(rx + 1, ry + 1, rw - 2, rh - 2);
+  }
+
+  // Grid lines
+  if (showGrid && cellSize >= 6) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = 0.5;
+    for (let x = 0; x <= mapW; x++) {
+      ctx.beginPath(); ctx.moveTo(x * cellSize + .5, 0); ctx.lineTo(x * cellSize + .5, H); ctx.stroke();
+    }
+    for (let y = 0; y <= mapH; y++) {
+      ctx.beginPath(); ctx.moveTo(0, y * cellSize + .5); ctx.lineTo(W, y * cellSize + .5); ctx.stroke();
+    }
+  }
+
+  // Cursor highlight + tile ghost
+  if (inBounds(hoverTx, hoverTy)) {
+    const px = hoverTx * cellSize, py = hoverTy * cellSize;
+    if (tool === 'pencil' && activeTile && activeLayer < 3) {
+      const tc = getTileCanvas(activeTile);
+      if (tc) {
+        ctx.globalAlpha = 0.45; ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(tc, px, py, cellSize, cellSize);
+        ctx.globalAlpha = 1;
+      }
+    }
+    ctx.strokeStyle = '#e94560'; ctx.lineWidth = 2;
+    ctx.strokeRect(px + 1, py + 1, cellSize - 2, cellSize - 2);
+  }
+}
+
+function renderMarkerOverlays() {
+  ctx.save();
+
+  state.triggers.forEach(trigger => {
+    const selected = state.selectedMarkerKind === 'trigger' && state.selectedMarkerId === trigger.id;
+    const px = trigger.x * state.cellSize;
+    const py = trigger.y * state.cellSize;
+    const pw = trigger.w * state.cellSize;
+    const ph = trigger.h * state.cellSize;
+    const fill = trigger.type === 'transition'
+      ? 'rgba(162,111,255,0.16)'
+      : trigger.type === 'dialog'
+        ? 'rgba(255,140,244,0.16)'
+        : 'rgba(255,196,84,0.16)';
+    const stroke = selected ? '#ff80a0' : (trigger.type === 'transition' ? '#a26fff' : trigger.type === 'dialog' ? '#ff8cf4' : '#ffc454');
+    ctx.fillStyle = fill;
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = selected ? 3 : 2;
+    ctx.fillRect(px, py, pw, ph);
+    ctx.strokeRect(px + 1, py + 1, Math.max(0, pw - 2), Math.max(0, ph - 2));
+    if (state.cellSize >= 16) {
+      ctx.fillStyle = stroke;
+      ctx.font = `${Math.max(10, Math.floor(state.cellSize * 0.4))}px Segoe UI`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(trigger.type[0].toUpperCase(), px + 4, py + 3);
+    }
+  });
+
+  state.entrances.forEach(entry => {
+    const selected = state.selectedMarkerKind === 'entrance' && state.selectedMarkerId === entry.id;
+    const cx = entry.x * state.cellSize + state.cellSize / 2;
+    const cy = entry.y * state.cellSize + state.cellSize / 2;
+    const r = Math.max(5, state.cellSize * 0.24);
+    ctx.beginPath();
+    ctx.fillStyle = selected ? 'rgba(128,227,255,0.45)' : 'rgba(128,227,255,0.28)';
+    ctx.strokeStyle = selected ? '#ffffff' : '#80e3ff';
+    ctx.lineWidth = selected ? 3 : 2;
+    ctx.moveTo(cx, cy - r);
+    ctx.lineTo(cx + r, cy);
+    ctx.lineTo(cx, cy + r);
+    ctx.lineTo(cx - r, cy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    if (state.cellSize >= 18) {
+      ctx.fillStyle = '#dff8ff';
+      ctx.font = `${Math.max(10, Math.floor(state.cellSize * 0.35))}px Segoe UI`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('E', cx, cy + 1);
+    }
+  });
+
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════
+//  HISTORY
+// ══════════════════════════════════════════════
+
+function cloneLayers(layers) {
+  return layers.map(layer => ({ ...layer, tiles: [...layer.tiles] }));
+}
+
+function mapStateSnapshot() {
+  return {
+    layers: cloneLayers(state.layers),
+    entrances: cloneEntrances(state.entrances),
+    triggers: cloneTriggers(state.triggers),
+  };
+}
+
+function snapshotsEqual(a, b) {
+  if (!a || !b || a.layers.length !== b.layers.length || a.entrances.length !== b.entrances.length || a.triggers.length !== b.triggers.length) {
+    return false;
+  }
+  for (let i = 0; i < a.layers.length; i++) {
+    if (a.layers[i].name !== b.layers[i].name || a.layers[i].visible !== b.layers[i].visible || a.layers[i].tiles.length !== b.layers[i].tiles.length) {
+      return false;
+    }
+    for (let j = 0; j < a.layers[i].tiles.length; j++) if (a.layers[i].tiles[j] !== b.layers[i].tiles[j]) return false;
+  }
+  for (let i = 0; i < a.entrances.length; i++) {
+    if (JSON.stringify(a.entrances[i]) !== JSON.stringify(b.entrances[i])) return false;
+  }
+  for (let i = 0; i < a.triggers.length; i++) {
+    if (JSON.stringify(a.triggers[i]) !== JSON.stringify(b.triggers[i])) return false;
+  }
+  return true;
+}
+
+function saveHistory() {
+  const snap = mapStateSnapshot();
+  const last = state.history[state.history.length - 1];
+  if (last && snapshotsEqual(last, snap)) return false;
+  state.history = state.history.slice(0, state.historyIndex + 1);
+  state.history.push(snap);
+  state.historyIndex = state.history.length - 1;
+  if (state.history.length > 60) { state.history.shift(); state.historyIndex--; }
+  return true;
+}
+
+function resetHistory() {
+  state.history = [];
+  state.historyIndex = -1;
+  saveHistory();
+}
+
+function undo() {
+  if (state.historyIndex > 0) {
+    state.historyIndex--;
+    const snap = state.history[state.historyIndex];
+    state.layers = cloneLayers(snap.layers);
+    state.entrances = cloneEntrances(snap.entrances);
+    state.triggers = cloneTriggers(snap.triggers);
+    ensureSelectedMarker();
+    updateMarkerStatus();
+    buildEventPanel();
+    render();
+  }
+}
+
+function redo() {
+  if (state.historyIndex < state.history.length - 1) {
+    state.historyIndex++;
+    const snap = state.history[state.historyIndex];
+    state.layers = cloneLayers(snap.layers);
+    state.entrances = cloneEntrances(snap.entrances);
+    state.triggers = cloneTriggers(snap.triggers);
+    ensureSelectedMarker();
+    updateMarkerStatus();
+    buildEventPanel();
+    render();
+  }
+}
+
+// ══════════════════════════════════════════════
+//  TOOLS
+// ══════════════════════════════════════════════
+
+function paintAt(tx, ty) {
+  if (!inBounds(tx, ty)) return false;
+  const layer = state.layers[state.activeLayer];
+  const nextValue = state.activeLayer === 3
+    ? (state.tool === 'eraser' ? null : true)
+    : (state.tool === 'eraser' ? null : state.activeTile);
+  if (state.activeLayer < 3 && nextValue === null && state.tool !== 'eraser') return false;
+  const index = tileIdx(tx, ty);
+  if (layer.tiles[index] === nextValue) return false;
+  layer.tiles[index] = nextValue;
+  return true;
+}
+
+function currentFillValue() {
+  if (state.activeLayer === 3) {
+    return state.tool === 'eraser' ? null : true;
+  }
+  if (state.tool === 'eraser') return null;
+  return state.activeTile || undefined;
+}
+
+function floodFill(tx, ty) {
+  if (!inBounds(tx, ty)) return false;
+  const layer  = state.layers[state.activeLayer];
+  const fillWith = currentFillValue();
+  if (fillWith === undefined) return false;
+  const target = layer.tiles[tileIdx(tx, ty)];
+  if (target === fillWith) return false;
+  const stack = [[tx, ty]], visited = new Set();
+  let changed = false;
+  while (stack.length) {
+    const [cx, cy] = stack.pop();
+    if (!inBounds(cx, cy)) continue;
+    const key = cx + ',' + cy;
+    if (visited.has(key)) continue;
+    visited.add(key);
+    if (layer.tiles[tileIdx(cx, cy)] !== target) continue;
+    layer.tiles[tileIdx(cx, cy)] = fillWith;
+    changed = true;
+    stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
+  }
+  return changed;
+}
+
+function commitRect(tx, ty) {
+  if (!state.rectStart) return false;
+  const [sx, sy] = state.rectStart;
+  const minX = Math.min(sx, tx), maxX = Math.max(sx, tx);
+  const minY = Math.min(sy, ty), maxY = Math.max(sy, ty);
+  const layer = state.layers[state.activeLayer];
+  const fillWith = currentFillValue();
+  let changed = false;
+  if (fillWith === undefined) {
+    state.rectStart = null;
+    return false;
+  }
+  for (let y = minY; y <= maxY; y++)
+    for (let x = minX; x <= maxX; x++)
+      if (inBounds(x, y)) {
+        const index = tileIdx(x, y);
+        if (layer.tiles[index] !== fillWith) {
+          layer.tiles[index] = fillWith;
+          changed = true;
+        }
+      }
+  state.rectStart = null;
+  return changed;
+}
+
+function bresenham(x0, y0, x1, y1) {
+  const pts = [];
+  let dx = Math.abs(x1-x0), dy = Math.abs(y1-y0);
+  let sx = x0<x1?1:-1, sy = y0<y1?1:-1, err = dx-dy;
+  while (true) {
+    pts.push([x0, y0]);
+    if (x0===x1 && y0===y1) break;
+    const e2 = 2*err;
+    if (e2 > -dy) { err -= dy; x0 += sx; }
+    if (e2 <  dx) { err += dx; y0 += sy; }
+  }
+  return pts;
+}
+
+// ══════════════════════════════════════════════
+//  MOUSE
+// ══════════════════════════════════════════════
+
+function canvasPos(e) {
+  const r = canvas.getBoundingClientRect();
+  return [
+    Math.floor((e.clientX - r.left)  / state.cellSize),
+    Math.floor((e.clientY - r.top)   / state.cellSize),
+  ];
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  const [tx, ty] = canvasPos(e);
+  if (state.placingMarker) {
+    const marker = getSelectedMarker();
+    state.placingMarker = false;
+    if (!marker || !inBounds(tx, ty)) {
+      updateMarkerStatus();
+      buildEventPanel();
+      render();
+      return;
+    }
+    if (state.selectedMarkerKind === 'entrance') {
+      commitMarkerChange(target => {
+        target.x = tx;
+        target.y = ty;
+      }, { rebuild: true });
+    } else {
+      commitMarkerChange(target => {
+        target.x = tx;
+        target.y = ty;
+      }, { rebuild: true });
+    }
+    updateMarkerStatus();
+    buildEventPanel();
+    render();
+    return;
+  }
+  state.isDrawing = true; state.lastTx = tx; state.lastTy = ty;
+  state.didMutate = false;
+  if (state.tool === 'fill')             { state.didMutate = floodFill(tx, ty); render(); }
+  else if (state.tool === 'rect')        { state.rectStart = [tx, ty]; render(); }
+  else                                   { state.didMutate = paintAt(tx, ty); render(); }
+});
+
+window.addEventListener('mousemove', e => {
+  const [tx, ty] = canvasPos(e);
+  state.hoverTx = tx; state.hoverTy = ty;
+  document.getElementById('st-pos').textContent =
+    inBounds(tx, ty) ? `Cursor: ${tx}, ${ty}` : 'Cursor: —';
+
+  if (state.isDrawing && (state.tool === 'pencil' || state.tool === 'eraser')) {
+    const pts = state.lastTx !== null
+      ? bresenham(state.lastTx, state.lastTy, tx, ty) : [[tx, ty]];
+    pts.forEach(([px, py]) => { state.didMutate = paintAt(px, py) || state.didMutate; });
+    state.lastTx = tx; state.lastTy = ty;
+  }
+  render();
+});
+
+window.addEventListener('mouseup', e => {
+  if (!state.isDrawing) return;
+  const [tx, ty] = canvasPos(e);
+  if (state.tool === 'rect') state.didMutate = commitRect(tx, ty) || state.didMutate;
+  state.isDrawing = false; state.lastTx = null; state.lastTy = null;
+  if (state.didMutate) saveHistory();
+  state.didMutate = false;
+  render();
+});
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// ══════════════════════════════════════════════
+//  TOOL BUTTONS
+// ══════════════════════════════════════════════
+
+function setTool(name) {
+  state.tool = name;
+  document.querySelectorAll('[data-tool]').forEach(b =>
+    b.classList.toggle('active', b.dataset.tool === name));
+  const names = { pencil:'Pencil', eraser:'Eraser', fill:'Fill', rect:'Rectangle' };
+  document.getElementById('st-tool').textContent = 'Tool: ' + names[name];
+  canvas.style.cursor = name === 'eraser' ? 'cell' : 'crosshair';
+}
+document.querySelectorAll('[data-tool]').forEach(b =>
+  b.addEventListener('click', () => setTool(b.dataset.tool)));
+
+// ══════════════════════════════════════════════
+//  ZOOM
+// ══════════════════════════════════════════════
+
+function applyZoom() {
+  state.cellSize = CELL_SIZES[cellSizeIdx];
+  document.getElementById('zoom-label').textContent = state.cellSize + 'px';
+  resizeCanvas(); render();
+}
+document.getElementById('btn-zoom-in').addEventListener('click', () =>
+  { if (cellSizeIdx < CELL_SIZES.length-1) { cellSizeIdx++; applyZoom(); } });
+document.getElementById('btn-zoom-out').addEventListener('click', () =>
+  { if (cellSizeIdx > 0) { cellSizeIdx--; applyZoom(); } });
+document.getElementById('map-area').addEventListener('wheel', e => {
+  e.preventDefault();
+  if      (e.deltaY < 0 && cellSizeIdx < CELL_SIZES.length-1) { cellSizeIdx++; applyZoom(); }
+  else if (e.deltaY > 0 && cellSizeIdx > 0)                   { cellSizeIdx--; applyZoom(); }
+}, { passive: false });
+
+// ══════════════════════════════════════════════
+//  GRID
+// ══════════════════════════════════════════════
+
+const btnGrid = document.getElementById('btn-grid');
+btnGrid.addEventListener('click', () => {
+  state.showGrid = !state.showGrid;
+  btnGrid.textContent = 'Grid' + (state.showGrid ? ' ✓' : '');
+  render();
+});
+
+// ══════════════════════════════════════════════
+//  LAYERS PANEL
+// ══════════════════════════════════════════════
+
+function buildLayerPanel() {
+  const list = document.getElementById('layer-list');
+  list.innerHTML = '';
+  state.layers.forEach((layer, i) => {
+    const row = document.createElement('div');
+    row.className = 'layer-row' + (i === state.activeLayer ? ' active' : '');
+
+    const dot = document.createElement('div');
+    dot.className = 'layer-dot'; dot.style.background = LAYER_COLORS[i];
+
+    const name = document.createElement('span');
+    name.className = 'layer-name'; name.textContent = layer.name;
+
+    const hotkey = document.createElement('span');
+    hotkey.className = 'layer-hotkey'; hotkey.textContent = i + 1;
+
+    const vis = document.createElement('button');
+    vis.className = 'layer-vis' + (layer.visible ? '' : ' hidden');
+    vis.textContent = layer.visible ? '👁' : '🚫';
+    vis.addEventListener('click', ev => {
+      ev.stopPropagation();
+      layer.visible = !layer.visible;
+      buildLayerPanel(); render();
+    });
+
+    row.append(dot, name, hotkey, vis);
+    row.addEventListener('click', () => {
+      state.activeLayer = i;
+      document.getElementById('st-layer').textContent = 'Layer: ' + layer.name;
+      buildLayerPanel();
+    });
+    list.appendChild(row);
+  });
+}
+
+// ══════════════════════════════════════════════
+//  TILE PICKER
+// ══════════════════════════════════════════════
+
+function buildTilePicker() {
+  const grid = document.getElementById('tile-grid');
+  grid.innerHTML = '';
+  const project = getProject();
+  const tiles = project
+    ? Object.entries(project.sprites || {}).filter(([, sd]) => (sd.tags || []).includes('tile'))
+    : [];
+
+  document.getElementById('tile-count').textContent = tiles.length;
+
+  if (!tiles.length) {
+    grid.style.display = 'flex';
+    const msg = document.createElement('div');
+    msg.id = 'no-tiles-msg';
+    msg.innerHTML = `<span style="font-size:26px">&#128444;</span>
+      <span>No tiles in project.<br>Draw sprites and tag them as <b style="color:#6fffa0">tile</b>.</span>
+      <a href="pixel-art-creator.html" target="_self"
+         style="color:#4a8aba;font-size:11px;text-decoration:none">Open Pixel Art Editor &#8594;</a>`;
+    grid.appendChild(msg);
+    return;
+  }
+
+  grid.style.display = 'grid';
+  tiles.forEach(([name, sd]) => {
+    const cell = document.createElement('div');
+    cell.className = 'tile-cell' + (name === state.activeTile ? ' selected' : '');
+
+    const c = document.createElement('canvas');
+    c.width = sd.gridW; c.height = sd.gridH;
+    const cc = c.getContext('2d');
+    (sd.frames?.[0] || []).forEach((col, i) => {
+      if (col) { cc.fillStyle = col; cc.fillRect(i % sd.gridW, Math.floor(i / sd.gridW), 1, 1); }
+    });
+
+    const lbl = document.createElement('div');
+    lbl.className = 'tile-name'; lbl.textContent = name;
+
+    cell.append(c, lbl);
+    cell.addEventListener('click', () => {
+      state.activeTile = name;
+      document.getElementById('st-tile').textContent = 'Tile: ' + name;
+      document.querySelectorAll('.tile-cell').forEach(el =>
+        el.classList.toggle('selected', el === cell));
+      if (state.activeLayer !== 3 && state.tool !== 'fill' && state.tool !== 'rect')
+        setTool('pencil');
+    });
+    grid.appendChild(cell);
+  });
+}
+
+function nextGeneratedTileName(project, base) {
+  let index = 1;
+  let name = `${base}_${String(index).padStart(3, '0')}`;
+  while (project?.sprites?.[name]) {
+    index++;
+    name = `${base}_${String(index).padStart(3, '0')}`;
+  }
+  return name;
+}
+
+async function importImageAsMap(file) {
+  if (!file) return;
+
+  const hasContent = state.layers.some(layer => layer.tiles.some(tile => tile !== null))
+    || state.entrances.length
+    || state.triggers.length;
+  if (hasContent && !confirm('Import a new image-based map? Current unsaved map changes will be replaced.')) return;
+
+  const defaultMapName = document.getElementById('map-name').value.trim() || slugifyName(file.name, 'imported_map');
+  const mapName = (prompt('Map name', defaultMapName) || defaultMapName).trim() || defaultMapName;
+  const mapW = Math.max(4, Math.min(64, parseInt(prompt('Map width in tiles', String(state.mapW)), 10) || state.mapW));
+  const mapH = Math.max(4, Math.min(48, parseInt(prompt('Map height in tiles', String(state.mapH)), 10) || state.mapH));
+  const tileSize = Math.max(8, Math.min(64, parseInt(prompt('Generated tile sprite size in pixels', '16'), 10) || 16));
+  let fit = prompt('Import mode: fit, fill, or stretch', 'fill');
+  fit = ['fit', 'fill', 'stretch'].includes((fit || '').trim().toLowerCase()) ? fit.trim().toLowerCase() : 'fill';
+  const maxColorsRaw = prompt('Max colors per generated tile? Use 0 to keep all colors.', '0');
+  const parsedMaxColors = parseInt(maxColorsRaw, 10);
+  const maxColors = Number.isFinite(parsedMaxColors) && parsedMaxColors >= 0 ? parsedMaxColors : 0;
+  const layerChoice = Math.max(1, Math.min(3, parseInt(prompt('Import into layer 1, 2, or 3', String(Math.min(3, Math.max(1, state.activeLayer + 1)))), 10) || Math.min(3, Math.max(1, state.activeLayer + 1))));
+  const layerIndex = layerChoice - 1;
+
+  try {
+    const image = await loadImageFile(file);
+    const scaledCanvas = drawImageToCanvas(image, mapW * tileSize, mapH * tileSize, { fit });
+    const scaledCtx = scaledCanvas.getContext('2d', { willReadFrequently: true });
+
+    let project = getProject();
+    if (!project) project = blankProject(mapName);
+    if (!project.sprites) project.sprites = {};
+
+    const generatedTiles = new Array(mapW * mapH).fill(null);
+    const seenTiles = new Map();
+    const tileBaseName = slugifyName(`${mapName}_tile`, 'imported_tile');
+    const tags = ['tile'];
+    if (layerIndex === 0) tags.push('bg');
+    if (layerIndex === 2) tags.push('fg');
+
+    for (let ty = 0; ty < mapH; ty++) {
+      for (let tx = 0; tx < mapW; tx++) {
+        const imageData = scaledCtx.getImageData(tx * tileSize, ty * tileSize, tileSize, tileSize);
+        const frame = imageDataToFrame(imageData, {
+          maxColors,
+          alphaThreshold: 10,
+          transparentMode: 'alpha',
+        });
+        if (!frame.some(color => color !== null)) continue;
+
+        const key = frameKey(frame);
+        let tileName = seenTiles.get(key);
+        if (!tileName) {
+          tileName = nextGeneratedTileName(project, tileBaseName);
+          project.sprites[tileName] = {
+            gridW: tileSize,
+            gridH: tileSize,
+            fps: 1,
+            frames: [frame],
+            tags: tags.slice(),
+            modified: new Date().toISOString(),
+          };
+          seenTiles.set(key, tileName);
+        }
+        generatedTiles[ty * mapW + tx] = tileName;
+      }
+    }
+
+    state.mapW = mapW;
+    state.mapH = mapH;
+    initLayers(mapW, mapH);
+    state.layers[layerIndex].tiles = generatedTiles;
+    state.activeLayer = layerIndex;
+    state.activeTile = generatedTiles.find(Boolean) || null;
+    state.entrances = [];
+    state.triggers = [];
+    state.selectedMarkerKind = '';
+    state.selectedMarkerId = '';
+    state.placingMarker = false;
+    state.loadedMapName = mapName;
+
+    document.getElementById('map-name').value = mapName;
+    document.getElementById('map-w').value = mapW;
+    document.getElementById('map-h').value = mapH;
+    document.getElementById('st-size').textContent = `Map: ${mapW}x${mapH}`;
+    document.getElementById('st-layer').textContent = 'Layer: ' + state.layers[state.activeLayer].name;
+    document.getElementById('st-tile').textContent = 'Tile: ' + (state.activeTile || 'none');
+
+    tileCache.clear();
+    setProject(project);
+    resetHistory();
+    resizeCanvas();
+    buildLayerPanel();
+    buildTilePicker();
+    buildEventPanel();
+    render();
+    saveToProject();
+    buildMapList();
+
+    alert(`Imported "${file.name}" as map "${mapName}" with ${seenTiles.size} generated tiles.`);
+  } catch (error) {
+    alert(error?.message || 'Could not import that image into a map.');
+  }
+}
+
+// ══════════════════════════════════════════════
+//  RESIZE MAP
+// ══════════════════════════════════════════════
+
+document.getElementById('btn-resize').addEventListener('click', () => {
+  const w = Math.max(4, Math.min(64, parseInt(document.getElementById('map-w').value) || 20));
+  const h = Math.max(4, Math.min(48, parseInt(document.getElementById('map-h').value) || 15));
+  if (w === state.mapW && h === state.mapH) return;
+  const hasContent = state.layers.some(l => l.tiles.some(t => t !== null));
+  if (hasContent && !confirm(`Resize to ${w}×${h}? Tiles outside the new bounds will be lost.`)) return;
+
+  const newLayers = state.layers.map(layer => {
+    const newTiles = new Array(w * h).fill(null);
+    for (let y = 0; y < Math.min(h, state.mapH); y++)
+      for (let x = 0; x < Math.min(w, state.mapW); x++)
+        newTiles[y * w + x] = layer.tiles[y * state.mapW + x];
+    return { ...layer, tiles: newTiles };
+  });
+
+  state.mapW = w; state.mapH = h; state.layers = newLayers;
+  state.entrances = state.entrances.map(entry => ({
+    ...entry,
+    x: Math.max(0, Math.min(w - 1, entry.x)),
+    y: Math.max(0, Math.min(h - 1, entry.y)),
+  }));
+  state.triggers = state.triggers.map(trigger => ({
+    ...trigger,
+    x: Math.max(0, Math.min(w - 1, trigger.x)),
+    y: Math.max(0, Math.min(h - 1, trigger.y)),
+    w: Math.max(1, Math.min(w, trigger.w)),
+    h: Math.max(1, Math.min(h, trigger.h)),
+  }));
+  saveHistory();
+  document.getElementById('st-size').textContent = `Map: ${w}×${h}`;
+  resizeCanvas(); buildEventPanel(); render();
+});
+
+// ══════════════════════════════════════════════
+//  SAVE / LOAD
+// ══════════════════════════════════════════════
+
+function saveToProject() {
+  const name = document.getElementById('map-name').value.trim() || 'Untitled Map';
+  const project = getProject();
+  if (!project) { alert('No project found. Create a project in the Hub first.'); return; }
+
+  const mapData = normalizeMapData({
+    name,
+    mapW: state.mapW, mapH: state.mapH,
+    layers: state.layers.map(l => ({ name: l.name, visible: l.visible, tiles: [...l.tiles] })),
+    entrances: cloneEntrances(state.entrances),
+    triggers: cloneTriggers(state.triggers),
+    modified: new Date().toISOString(),
+  }, name);
+
+  if (!project.maps) project.maps = [];
+  const existing = project.maps.findIndex(m => m.name === name);
+  if (existing >= 0) project.maps[existing] = mapData;
+  else project.maps.push(mapData);
+
+  setProject(project);
+  state.loadedMapName = name;
+  buildMapList();
+
+  const btn = document.getElementById('btn-save');
+  const orig = btn.textContent;
+  btn.textContent = '✓ Saved!';
+  setTimeout(() => { btn.textContent = orig; }, 1500);
+}
+
+function loadMap(mapData) {
+  const normalized = normalizeMapData(mapData, mapData?.name);
+  state.mapW = normalized.mapW; state.mapH = normalized.mapH;
+  state.layers = cloneLayers(normalized.layers);
+  state.entrances = cloneEntrances(normalized.entrances || []);
+  state.triggers = cloneTriggers(normalized.triggers || []);
+  document.getElementById('map-name').value  = normalized.name;
+  document.getElementById('map-w').value     = normalized.mapW;
+  document.getElementById('map-h').value     = normalized.mapH;
+  document.getElementById('st-size').textContent = `Map: ${normalized.mapW}×${normalized.mapH}`;
+  state.loadedMapName = normalized.name;
+  resetHistory();
+  ensureSelectedMarker();
+  resizeCanvas(); buildLayerPanel(); buildMapList(); buildEventPanel(); render();
+}
+
+function deleteMapFromProject(name) {
+  if (!confirm(`Delete map "${name}" from project? This cannot be undone.`)) return;
+  const project = getProject();
+  if (!project) return;
+  project.maps = (project.maps || []).filter(m => m.name !== name);
+  setProject(project);
+  if (state.loadedMapName === name) state.loadedMapName = null;
+  buildMapList();
+}
+
+function buildMapList() {
+  const wrap = document.getElementById('map-list-wrap');
+  wrap.innerHTML = '';
+  const project = getProject();
+  const maps = project?.maps || [];
+
+  if (!maps.length) {
+    wrap.innerHTML = '<div style="padding:10px;font-size:11px;color:#506070">No maps saved yet.</div>';
+    return;
+  }
+
+  maps.forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'map-row' + (m.name === state.loadedMapName ? ' active' : '');
+
+    const info = document.createElement('div');
+    info.style.cssText = 'flex:1;overflow:hidden';
+    const title = document.createElement('div');
+    title.className = 'map-row-name';
+    title.textContent = m.name;
+    const meta = document.createElement('div');
+    meta.className = 'map-row-meta';
+    meta.textContent = `${m.mapW}×${m.mapH}`;
+    info.append(title, meta);
+
+    const del = document.createElement('button');
+    del.className = 'map-del'; del.textContent = '✕'; del.title = 'Delete map';
+    del.addEventListener('click', ev => { ev.stopPropagation(); deleteMapFromProject(m.name); });
+
+    row.append(info, del);
+    row.addEventListener('click', () => loadMap(m));
+    wrap.appendChild(row);
+  });
+}
+
+// ══════════════════════════════════════════════
+//  ENTRANCES / TRIGGERS
+// ══════════════════════════════════════════════
+
+function entranceOptionsForMap(mapName, currentValue) {
+  const select = document.createElement('select');
+  const project = getProject();
+  const currentMapName = document.getElementById('map-name')?.value?.trim() || state.loadedMapName || '';
+  const map = mapName === currentMapName
+    ? { entrances: state.entrances }
+    : (project?.maps || []).find(entry => entry.name === mapName);
+  const empty = document.createElement('option');
+  empty.value = '';
+  empty.textContent = '— first open tile —';
+  select.appendChild(empty);
+  (map?.entrances || []).forEach(entry => {
+    const option = document.createElement('option');
+    option.value = entry.id;
+    option.textContent = entry.name;
+    if (entry.id === currentValue) option.selected = true;
+    select.appendChild(option);
+  });
+  if (!select.value && currentValue) select.value = '';
+  return select;
+}
+
+function buildEventPanel() {
+  const panel = document.getElementById('event-panel');
+  panel.innerHTML = '';
+  ensureSelectedMarker();
+  updateMarkerStatus();
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'event-toolbar';
+
+  const btnAddEntrance = document.createElement('button');
+  btnAddEntrance.textContent = '+ Entrance';
+  btnAddEntrance.addEventListener('click', () => {
+    const entry = blankEntrance();
+    state.entrances.push(entry);
+    selectMarker('entrance', entry.id);
+    saveHistory();
+  });
+
+  const btnAddTrigger = document.createElement('button');
+  btnAddTrigger.textContent = '+ Trigger';
+  btnAddTrigger.addEventListener('click', () => {
+    const trigger = blankTrigger();
+    trigger.targetMap = state.loadedMapName || document.getElementById('map-name').value.trim() || '';
+    state.triggers.push(trigger);
+    selectMarker('trigger', trigger.id);
+    saveHistory();
+  });
+
+  const btnPlace = document.createElement('button');
+  btnPlace.className = 'wide' + (getSelectedMarker() ? '' : '');
+  btnPlace.textContent = state.placingMarker ? 'Cancel Place' : 'Place Selected On Map';
+  btnPlace.disabled = !getSelectedMarker();
+  btnPlace.classList.toggle('active', state.placingMarker);
+  btnPlace.addEventListener('click', () => {
+    if (!getSelectedMarker()) return;
+    state.placingMarker = !state.placingMarker;
+    updateMarkerStatus();
+    buildEventPanel();
+    render();
+  });
+
+  const btnDelete = document.createElement('button');
+  btnDelete.className = 'wide';
+  btnDelete.textContent = 'Delete Selected';
+  btnDelete.disabled = !getSelectedMarker();
+  btnDelete.addEventListener('click', () => {
+    const marker = getSelectedMarker();
+    if (!marker) return;
+    const label = state.selectedMarkerKind === 'entrance' ? 'entrance' : 'trigger';
+    if (!confirm(`Delete ${label} "${marker.name}"?`)) return;
+    if (state.selectedMarkerKind === 'entrance') {
+      state.entrances = state.entrances.filter(entry => entry.id !== marker.id);
+      state.triggers.forEach(trigger => {
+        if (trigger.targetEntranceId === marker.id) trigger.targetEntranceId = '';
+      });
+    } else {
+      state.triggers = state.triggers.filter(trigger => trigger.id !== marker.id);
+    }
+    state.placingMarker = false;
+    ensureSelectedMarker();
+    saveHistory();
+    buildEventPanel();
+    render();
+  });
+
+  toolbar.append(btnAddEntrance, btnAddTrigger, btnPlace, btnDelete);
+  panel.appendChild(toolbar);
+
+  const list = document.createElement('div');
+  list.className = 'event-list';
+
+  if (!state.entrances.length && !state.triggers.length) {
+    const empty = document.createElement('div');
+    empty.className = 'event-empty';
+    empty.textContent = 'No entrances or triggers yet.';
+    list.appendChild(empty);
+  }
+
+  state.entrances.forEach(entry => {
+    const row = document.createElement('div');
+    row.className = 'event-row' + (state.selectedMarkerKind === 'entrance' && state.selectedMarkerId === entry.id ? ' active' : '');
+    const title = document.createElement('div');
+    title.className = 'event-row-title';
+    const name = document.createElement('span');
+    name.textContent = entry.name;
+    const badge = document.createElement('span');
+    badge.className = 'event-badge badge-entrance';
+    badge.textContent = 'Entrance';
+    title.append(name, badge);
+    const meta = document.createElement('div');
+    meta.className = 'event-row-meta';
+    meta.textContent = `Tile ${entry.x}, ${entry.y}`;
+    row.append(title, meta);
+    row.addEventListener('click', () => selectMarker('entrance', entry.id));
+    list.appendChild(row);
+  });
+
+  state.triggers.forEach(trigger => {
+    const row = document.createElement('div');
+    row.className = 'event-row' + (state.selectedMarkerKind === 'trigger' && state.selectedMarkerId === trigger.id ? ' active' : '');
+    const title = document.createElement('div');
+    title.className = 'event-row-title';
+    const name = document.createElement('span');
+    name.textContent = trigger.name;
+    const badge = document.createElement('span');
+    badge.className = 'event-badge ' + (trigger.type === 'transition' ? 'badge-transition' : trigger.type === 'dialog' ? 'badge-dialog' : 'badge-message');
+    badge.textContent = trigger.type;
+    title.append(name, badge);
+    const meta = document.createElement('div');
+    meta.className = 'event-row-meta';
+    meta.textContent = `${trigger.w}×${trigger.h} at ${trigger.x}, ${trigger.y}`;
+    row.append(title, meta);
+    row.addEventListener('click', () => selectMarker('trigger', trigger.id));
+    list.appendChild(row);
+  });
+
+  panel.appendChild(list);
+
+  const marker = getSelectedMarker();
+  if (!marker) return;
+
+  const editor = document.createElement('div');
+  editor.className = 'event-editor';
+  editor.innerHTML = `
+    <div class="event-editor-title">${state.selectedMarkerKind === 'entrance' ? 'Entrance Editor' : 'Trigger Editor'}</div>
+    <div class="event-field">
+      <label>Name</label>
+      <input type="text" id="event-name" value="${esc(marker.name)}">
+    </div>
+  `;
+  panel.appendChild(editor);
+
+  document.getElementById('event-name').addEventListener('change', e => {
+    commitMarkerChange(target => { target.name = e.target.value.trim() || (state.selectedMarkerKind === 'entrance' ? 'Entrance' : 'Trigger'); });
+  });
+
+  if (state.selectedMarkerKind === 'entrance') {
+    const grid = document.createElement('div');
+    grid.className = 'event-grid';
+    grid.innerHTML = `
+      <div class="event-field">
+        <label>Tile X</label>
+        <input type="number" id="event-x" min="0" max="${state.mapW - 1}" value="${marker.x}">
+      </div>
+      <div class="event-field">
+        <label>Tile Y</label>
+        <input type="number" id="event-y" min="0" max="${state.mapH - 1}" value="${marker.y}">
+      </div>
+    `;
+    editor.appendChild(grid);
+    document.getElementById('event-x').addEventListener('change', e => {
+      commitMarkerChange(target => { target.x = clampTileX(e.target.value); });
+    });
+    document.getElementById('event-y').addEventListener('change', e => {
+      commitMarkerChange(target => { target.y = clampTileY(e.target.value); });
+    });
+    return;
+  }
+
+  const typeField = document.createElement('div');
+  typeField.className = 'event-field';
+  const typeLabel = document.createElement('label');
+  typeLabel.textContent = 'Trigger Type';
+  const typeSelect = document.createElement('select');
+  [
+    ['transition', 'Transition'],
+    ['dialog', 'Dialog'],
+    ['message', 'Message'],
+  ].forEach(([value, label]) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    if (marker.type === value) option.selected = true;
+    typeSelect.appendChild(option);
+  });
+  typeField.append(typeLabel, typeSelect);
+  editor.appendChild(typeField);
+
+  const grid = document.createElement('div');
+  grid.className = 'event-grid';
+  grid.innerHTML = `
+    <div class="event-field">
+      <label>Tile X</label>
+      <input type="number" id="event-x" min="0" max="${state.mapW - 1}" value="${marker.x}">
+    </div>
+    <div class="event-field">
+      <label>Tile Y</label>
+      <input type="number" id="event-y" min="0" max="${state.mapH - 1}" value="${marker.y}">
+    </div>
+    <div class="event-field">
+      <label>Width</label>
+      <input type="number" id="event-w" min="1" max="${state.mapW}" value="${marker.w}">
+    </div>
+    <div class="event-field">
+      <label>Height</label>
+      <input type="number" id="event-h" min="1" max="${state.mapH}" value="${marker.h}">
+    </div>
+  `;
+  editor.appendChild(grid);
+
+  const project = getProject();
+  const mapField = document.createElement('div');
+  mapField.className = 'event-field';
+  const mapLabel = document.createElement('label');
+  mapLabel.textContent = 'Target Map';
+  const mapSelect = document.createElement('select');
+  const noneMap = document.createElement('option');
+  noneMap.value = '';
+  noneMap.textContent = '— select map —';
+  mapSelect.appendChild(noneMap);
+  (project?.maps || []).forEach(map => {
+    const option = document.createElement('option');
+    option.value = map.name;
+    option.textContent = map.name;
+    if (map.name === marker.targetMap) option.selected = true;
+    mapSelect.appendChild(option);
+  });
+  mapField.append(mapLabel, mapSelect);
+
+  const entranceField = document.createElement('div');
+  entranceField.className = 'event-field';
+  const entranceLabel = document.createElement('label');
+  entranceLabel.textContent = 'Target Entrance';
+  const entranceSelect = entranceOptionsForMap(marker.targetMap, marker.targetEntranceId);
+  entranceSelect.id = 'event-target-entrance';
+  entranceField.append(entranceLabel, entranceSelect);
+
+  const dialogField = document.createElement('div');
+  dialogField.className = 'event-field';
+  const dialogLabel = document.createElement('label');
+  dialogLabel.textContent = 'Dialog';
+  const dialogSelect = document.createElement('select');
+  const noneDialog = document.createElement('option');
+  noneDialog.value = '';
+  noneDialog.textContent = '— select dialog —';
+  dialogSelect.appendChild(noneDialog);
+  (project?.dialogs || []).forEach(dialog => {
+    const option = document.createElement('option');
+    option.value = dialog.id;
+    option.textContent = dialog.name;
+    if (dialog.id === marker.dialogId) option.selected = true;
+    dialogSelect.appendChild(option);
+  });
+  dialogField.append(dialogLabel, dialogSelect);
+
+  const messageField = document.createElement('div');
+  messageField.className = 'event-field';
+  const messageLabel = document.createElement('label');
+  messageLabel.textContent = 'Message';
+  const messageInput = document.createElement('textarea');
+  messageInput.value = marker.message || '';
+  messageField.append(messageLabel, messageInput);
+
+  const requireField = document.createElement('div');
+  requireField.className = 'event-field';
+  const requireLabel = document.createElement('label');
+  requireLabel.textContent = 'Required Flag';
+  const requireInput = document.createElement('input');
+  requireInput.type = 'text';
+  requireInput.placeholder = 'quest_started or !quest_started';
+  requireInput.value = marker.requiredFlag || '';
+  requireField.append(requireLabel, requireInput);
+
+  const blockedField = document.createElement('div');
+  blockedField.className = 'event-field';
+  const blockedLabel = document.createElement('label');
+  blockedLabel.textContent = 'Blocked Message';
+  const blockedInput = document.createElement('input');
+  blockedInput.type = 'text';
+  blockedInput.placeholder = 'Shown if required flag is not met';
+  blockedInput.value = marker.blockedMessage || '';
+  blockedField.append(blockedLabel, blockedInput);
+
+  const effectGrid = document.createElement('div');
+  effectGrid.className = 'event-grid';
+  effectGrid.innerHTML = `
+    <div class="event-field">
+      <label>Set Flag</label>
+      <input type="text" id="event-set-flag" placeholder="opened_cabin" value="${esc(marker.setFlag || '')}">
+    </div>
+    <div class="event-field">
+      <label>Clear Flag</label>
+      <input type="text" id="event-clear-flag" placeholder="!quest_locked" value="${esc(marker.clearFlag || '')}">
+    </div>
+  `;
+
+  if (marker.type === 'transition') {
+    editor.append(mapField, entranceField);
+  } else if (marker.type === 'dialog') {
+    editor.appendChild(dialogField);
+  } else {
+    editor.appendChild(messageField);
+  }
+  editor.append(requireField, blockedField, effectGrid);
+
+  typeSelect.addEventListener('change', e => {
+    commitMarkerChange(target => { target.type = e.target.value; target.targetEntranceId = ''; }, { rebuild: true });
+  });
+  document.getElementById('event-x').addEventListener('change', e => {
+    commitMarkerChange(target => { target.x = clampTileX(e.target.value); });
+  });
+  document.getElementById('event-y').addEventListener('change', e => {
+    commitMarkerChange(target => { target.y = clampTileY(e.target.value); });
+  });
+  document.getElementById('event-w').addEventListener('change', e => {
+    commitMarkerChange(target => { target.w = clampSpanW(e.target.value); });
+  });
+  document.getElementById('event-h').addEventListener('change', e => {
+    commitMarkerChange(target => { target.h = clampSpanH(e.target.value); });
+  });
+
+  if (marker.type === 'transition') {
+    mapSelect.addEventListener('change', e => {
+      commitMarkerChange(target => {
+        target.targetMap = e.target.value;
+        target.targetEntranceId = '';
+      }, { rebuild: true });
+    });
+    entranceSelect.addEventListener('change', e => {
+      commitMarkerChange(target => { target.targetEntranceId = e.target.value; });
+    });
+  } else if (marker.type === 'dialog') {
+    dialogSelect.addEventListener('change', e => {
+      commitMarkerChange(target => { target.dialogId = e.target.value; });
+    });
+  } else {
+    messageInput.addEventListener('change', e => {
+      commitMarkerChange(target => { target.message = e.target.value; });
+    });
+  }
+
+  requireInput.addEventListener('change', e => {
+    commitMarkerChange(target => { target.requiredFlag = e.target.value.trim(); });
+  });
+  blockedInput.addEventListener('change', e => {
+    commitMarkerChange(target => { target.blockedMessage = e.target.value; });
+  });
+  document.getElementById('event-set-flag').addEventListener('change', e => {
+    commitMarkerChange(target => { target.setFlag = e.target.value.trim(); });
+  });
+  document.getElementById('event-clear-flag').addEventListener('change', e => {
+    commitMarkerChange(target => { target.clearFlag = e.target.value.trim(); });
+  });
+}
+
+// ══════════════════════════════════════════════
+//  NEW MAP
+// ══════════════════════════════════════════════
+
+document.getElementById('btn-new-map').addEventListener('click', () => {
+  const hasContent = state.layers.some(l => l.tiles.some(t => t !== null))
+    || state.entrances.length || state.triggers.length;
+  if (hasContent && !confirm('Start a new empty map? Unsaved changes will be lost.')) return;
+  const w = parseInt(document.getElementById('map-w').value) || 20;
+  const h = parseInt(document.getElementById('map-h').value) || 15;
+  state.mapW = w; state.mapH = h; state.loadedMapName = null;
+  document.getElementById('map-name').value = 'Untitled Map';
+  initLayers(w, h);
+  state.entrances = [];
+  state.triggers = [];
+  state.selectedMarkerKind = '';
+  state.selectedMarkerId = '';
+  state.placingMarker = false;
+  resetHistory();
+  resizeCanvas(); buildLayerPanel(); buildMapList(); buildEventPanel(); render();
+  document.getElementById('st-size').textContent = `Map: ${w}×${h}`;
+});
+
+document.getElementById('btn-save').addEventListener('click', saveToProject);
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-redo').addEventListener('click', redo);
+document.getElementById('btn-import-map-image').addEventListener('click', () =>
+  document.getElementById('map-image-input').click());
+document.getElementById('map-image-input').addEventListener('change', async e => {
+  if (e.target.files[0]) await importImageAsMap(e.target.files[0]);
+  e.target.value = '';
+});
+
+// ══════════════════════════════════════════════
+//  KEYBOARD SHORTCUTS
+// ══════════════════════════════════════════════
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 's') { e.preventDefault(); saveToProject(); return; }
+  const toolMap = { p:'pencil', e:'eraser', f:'fill', r:'rect' };
+  if (toolMap[k]) setTool(toolMap[k]);
+  if (k === 'g') btnGrid.click();
+  if (k === '+' || k === '=') document.getElementById('btn-zoom-in').click();
+  if (k === '-') document.getElementById('btn-zoom-out').click();
+  // Number keys 1–4 select layers
+  if (k >= '1' && k <= '4') {
+    state.activeLayer = parseInt(k) - 1;
+    document.getElementById('st-layer').textContent =
+      'Layer: ' + state.layers[state.activeLayer].name;
+    buildLayerPanel();
+  }
+});
+
+// Refresh tile picker if project changes in another tab
+window.addEventListener('storage', e => {
+  if (e.key === PROJECT_KEY) {
+    tileCache.clear();
+    buildTilePicker();
+    buildMapList();
+    buildEventPanel();
+    render();
+  }
+});
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+
+initLayers(state.mapW, state.mapH);
+resizeCanvas();
+resetHistory();
+buildLayerPanel();
+buildTilePicker();
+buildMapList();
+buildEventPanel();
+setTool('pencil');
+render();
+document.getElementById('st-size').textContent  = `Map: ${state.mapW}×${state.mapH}`;
+document.getElementById('zoom-label').textContent = state.cellSize + 'px';
+updateMarkerStatus();
+</script>
+</body>
+</html>

@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scene Composer — RPG Studio</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#151525;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;
+         font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+    #header{background:#16213e;border-bottom:1px solid #0f3460;padding:8px 12px;
+            display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}
+    #header h1{font-size:14px;font-weight:800;letter-spacing:1px;color:#e94560;white-space:nowrap}
+    .sep{width:1px;height:20px;background:#0f3460;flex-shrink:0}
+    .tg{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+    button,select,input[type=text],input[type=number],textarea,input[type=color]{
+      background:#0f3460;border:1px solid #1a4a7a;color:#e0e0e0;border-radius:5px;
+      padding:5px 8px;font-size:12px
+    }
+    button{cursor:pointer;transition:background .12s,border-color .12s;white-space:nowrap}
+    button:hover{background:#1a5a9a;border-color:#4a8aba}
+    button.green{background:#1a6a3a;border-color:#2a9a5a;color:#afffcf;font-weight:700}
+    button.green:hover{background:#2a8a4a}
+    button.red{background:#6a2020;border-color:#9a3030;color:#ffb0b0}
+    button.red:hover{background:#8a3030}
+    label{font-size:11px;color:#8090a0}
+    a.hub-link{color:#4a8aba;font-size:12px;text-decoration:none;padding:5px 9px;
+               background:#0f3460;border:1px solid #1a4a7a;border-radius:5px}
+    a.hub-link:hover{background:#1a5a9a;border-color:#4a8aba;color:#e0e0e0}
+
+    #main{display:flex;flex:1;overflow:hidden}
+    #scene-list-panel{width:220px;background:#16213e;border-right:1px solid #0f3460;display:flex;flex-direction:column;overflow:hidden}
+    .panel-title{padding:10px 12px 6px;font-size:10px;text-transform:uppercase;letter-spacing:1.4px;color:#506070}
+    #scene-list{flex:1;overflow-y:auto;padding:6px}
+    #scene-list::-webkit-scrollbar,#objects-list::-webkit-scrollbar,#inspector::-webkit-scrollbar{width:5px}
+    #scene-list::-webkit-scrollbar-thumb,#objects-list::-webkit-scrollbar-thumb,#inspector::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:2px}
+    .scene-row{padding:8px;border-radius:7px;border:1px solid transparent;cursor:pointer;margin-bottom:4px;background:#10213a}
+    .scene-row:hover{border-color:#2a4a6a;background:#133058}
+    .scene-row.active{border-color:#e94560;background:#2a1632}
+    .scene-name{font-size:12px;font-weight:700;color:#d6e4ff}
+    .scene-meta{font-size:10px;color:#6e85a8;margin-top:3px}
+
+    #stage-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+    #stage-toolbar{padding:10px 12px;border-bottom:1px solid #0f3460;background:#111a31;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    #stage-toolbar span{font-size:11px;color:#6e85a8}
+    #stage-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto;
+      background:radial-gradient(circle at top,#202b52 0%,#141628 58%,#0f1018 100%)}
+    #stage-shell{position:relative;display:inline-flex;align-items:center;justify-content:center}
+    #scene-canvas{display:block;border:1px solid #27446f;border-radius:14px;background:#16213e;box-shadow:0 24px 80px rgba(0,0,0,.45);image-rendering:pixelated;cursor:grab}
+    #scene-canvas.dragging{cursor:grabbing}
+
+    #right-panel{width:320px;background:#16213e;border-left:1px solid #0f3460;display:flex;flex-direction:column;overflow:hidden}
+    #inspector{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:14px}
+    .section{background:#10213a;border:1px solid #1a3a6a;border-radius:9px;padding:12px}
+    .section-title{font-size:10px;text-transform:uppercase;letter-spacing:1.4px;color:#506070;margin-bottom:10px}
+    .form-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+    .form-row:last-child{margin-bottom:0}
+    .form-row label{min-width:78px;flex-shrink:0}
+    .form-row input[type=text],.form-row input[type=number],.form-row select,.form-row textarea{flex:1}
+    .form-row textarea{min-height:70px;resize:vertical;font-family:inherit}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    #objects-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto}
+    .object-row{padding:7px 8px;border-radius:7px;border:1px solid transparent;background:#0f3460;cursor:pointer}
+    .object-row:hover{border-color:#2a4a6a;background:#14345f}
+    .object-row.active{border-color:#e94560;background:#2a1632}
+    .object-row-name{font-size:12px;color:#d8e7ff;font-weight:600}
+    .object-row-meta{font-size:10px;color:#6e85a8;margin-top:2px}
+    #empty-state{padding:20px;color:#607090;text-align:center;line-height:1.8}
+    #statusbar{background:#111a31;border-top:1px solid #0f3460;padding:5px 12px;font-size:11px;color:#607090;display:flex;gap:14px;flex-wrap:wrap}
+  </style>
+</head>
+<body>
+<div id="header">
+  <h1>&#127748; SCENE COMPOSER</h1>
+  <div class="sep"></div>
+  <div class="tg">
+    <button id="btn-new-scene">+ New Scene</button>
+    <button id="btn-save" class="green">&#128190; Save All</button>
+  </div>
+  <div class="sep"></div>
+  <div class="tg">
+    <span id="project-badge">No Project</span>
+  </div>
+  <div class="sep"></div>
+  <div class="tg">
+    <a href="index.html" class="hub-link" target="_self">&#8592; Hub</a>
+  </div>
+</div>
+
+<div id="main">
+  <div id="scene-list-panel">
+    <div class="panel-title">Scenes</div>
+    <div id="scene-list"></div>
+    <button id="btn-list-new" style="margin:8px">+ New Scene</button>
+  </div>
+
+  <div id="stage-panel">
+    <div id="stage-toolbar">
+      <span id="stage-title">No scene selected</span>
+      <span id="stage-info">Create or load a scene to start composing.</span>
+    </div>
+    <div id="stage-wrap">
+      <div id="stage-shell">
+        <canvas id="scene-canvas" width="960" height="540"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div id="right-panel">
+    <div id="inspector"></div>
+  </div>
+</div>
+
+<div id="statusbar">
+  <span id="st-scene">Scene: none</span>
+  <span id="st-objects">Objects: 0</span>
+  <span id="st-selected">Selected: none</span>
+  <span id="st-save"></span>
+</div>
+
+<script src="project-utils.js"></script>
+<script>
+'use strict';
+
+const {
+  PROJECT_KEY,
+  getProject,
+  setProject,
+  normalizeSceneData,
+} = window.ProjectUtils;
+
+const canvas = document.getElementById('scene-canvas');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+let scenes = [];
+let selectedSceneId = null;
+let selectedObjectId = null;
+let saveDebounce = null;
+let dragState = null;
+const spriteCache = new Map();
+
+function newSceneId() {
+  return 'scene_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5);
+}
+
+function newObjectId() {
+  return 'scene_object_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5);
+}
+
+function blankScene() {
+  return normalizeSceneData({
+    id: newSceneId(),
+    name: 'New Scene',
+    width: 960,
+    height: 540,
+    backgroundColor: '#1a2238',
+    dialogId: '',
+    requiredFlag: '',
+    setFlag: '',
+    clearFlag: '',
+    objects: [],
+  }, 'New Scene');
+}
+
+function blankObject(type) {
+  return {
+    id: newObjectId(),
+    type,
+    name: type === 'character' ? 'Character' : type === 'text' ? 'Caption' : 'Sprite',
+    spriteId: '',
+    characterId: '',
+    text: 'Scene text',
+    x: 120,
+    y: 120,
+    scale: 4,
+    flipX: false,
+    opacity: 1,
+    z: 0,
+  };
+}
+
+function getScene() {
+  return scenes.find(scene => scene.id === selectedSceneId) || scenes[0] || null;
+}
+
+function getSceneObject(scene, objectId) {
+  return scene?.objects?.find(object => object.id === objectId) || null;
+}
+
+function getProjectCharacters() {
+  return getProject()?.characters || [];
+}
+
+function getProjectDialogs() {
+  return getProject()?.dialogs || [];
+}
+
+function getProjectSprites() {
+  return getProject()?.sprites || {};
+}
+
+function getCharacter(characterId) {
+  return getProjectCharacters().find(character => character.id === characterId) || null;
+}
+
+function objectSpriteName(object) {
+  if (!object) return '';
+  if (object.type === 'sprite') return object.spriteId || '';
+  if (object.type === 'character') {
+    const character = getCharacter(object.characterId);
+    return character?.sprites?.idle || character?.sprites?.walk || '';
+  }
+  return '';
+}
+
+function getSpriteCanvas(spriteName, frameIndex = 0) {
+  const sprite = getProjectSprites()[spriteName];
+  if (!sprite) return null;
+  const key = `${spriteName}:${frameIndex}`;
+  if (spriteCache.has(key)) return spriteCache.get(key);
+  const offscreen = document.createElement('canvas');
+  offscreen.width = sprite.gridW;
+  offscreen.height = sprite.gridH;
+  const offctx = offscreen.getContext('2d');
+  const frame = sprite.frames?.[frameIndex] || sprite.frames?.[0] || [];
+  frame.forEach((color, index) => {
+    if (!color) return;
+    offctx.fillStyle = color;
+    offctx.fillRect(index % sprite.gridW, Math.floor(index / sprite.gridW), 1, 1);
+  });
+  spriteCache.set(key, offscreen);
+  return offscreen;
+}
+
+function objectBounds(object) {
+  if (!object) return null;
+  if (object.type === 'text') {
+    return { x: object.x, y: object.y, w: Math.max(80, object.text.length * 8), h: 28 };
+  }
+  const spriteName = objectSpriteName(object);
+  const sprite = getProjectSprites()[spriteName];
+  if (!sprite) return { x: object.x, y: object.y, w: 32, h: 32 };
+  return {
+    x: object.x,
+    y: object.y,
+    w: sprite.gridW * object.scale,
+    h: sprite.gridH * object.scale,
+  };
+}
+
+function loadFromProject() {
+  const project = getProject();
+  scenes = (project?.scenes || []).map((scene, index) => normalizeSceneData(scene, `Scene ${index + 1}`));
+  if (selectedSceneId && !scenes.some(scene => scene.id === selectedSceneId)) selectedSceneId = null;
+  if (!selectedSceneId && scenes.length) selectedSceneId = scenes[0].id;
+  const scene = getScene();
+  if (selectedObjectId && !scene?.objects?.some(object => object.id === selectedObjectId)) selectedObjectId = null;
+  document.getElementById('project-badge').textContent = project ? `\uD83D\uDCC1 ${project.name || 'Untitled Game'}` : 'No Project';
+  spriteCache.clear();
+}
+
+function saveToProject() {
+  const project = getProject();
+  if (!project) { alert('No project found. Create one in the hub first.'); return; }
+  project.scenes = scenes.map((scene, index) => normalizeSceneData(scene, scene.name || `Scene ${index + 1}`));
+  const stored = setProject(project);
+  document.getElementById('st-save').textContent = `Saved ${new Date(stored.modified).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}`;
+}
+
+function scheduleSave() {
+  clearTimeout(saveDebounce);
+  saveDebounce = setTimeout(saveToProject, 450);
+}
+
+function selectScene(sceneId) {
+  selectedSceneId = sceneId;
+  const scene = getScene();
+  selectedObjectId = scene?.objects?.[0]?.id || null;
+  renderAll();
+}
+
+function selectObject(objectId) {
+  selectedObjectId = objectId;
+  renderAll();
+}
+
+function createScene() {
+  const scene = blankScene();
+  scenes.push(scene);
+  selectedSceneId = scene.id;
+  selectedObjectId = null;
+  renderAll();
+  scheduleSave();
+}
+
+function addObject(type) {
+  const scene = getScene();
+  if (!scene) return;
+  const object = blankObject(type);
+  object.z = scene.objects.length;
+  if (type === 'sprite') {
+    object.spriteId = Object.keys(getProjectSprites())[0] || '';
+    object.name = object.spriteId || 'Sprite';
+  } else if (type === 'character') {
+    object.characterId = getProjectCharacters()[0]?.id || '';
+    object.name = getCharacter(object.characterId)?.name || 'Character';
+  }
+  scene.objects.push(object);
+  selectedObjectId = object.id;
+  renderAll();
+  scheduleSave();
+}
+
+function deleteSelectedObject() {
+  const scene = getScene();
+  if (!scene || !selectedObjectId) return;
+  scene.objects = scene.objects.filter(object => object.id !== selectedObjectId)
+    .map((object, index) => ({ ...object, z: index }));
+  selectedObjectId = scene.objects[0]?.id || null;
+  renderAll();
+  scheduleSave();
+}
+
+function ensureSceneOrder(scene) {
+  scene.objects = [...scene.objects].sort((a, b) => a.z - b.z).map((object, index) => ({ ...object, z: index }));
+}
+
+function renderStage() {
+  const scene = getScene();
+  if (!scene) {
+    canvas.width = 960;
+    canvas.height = 540;
+    ctx.fillStyle = '#101726';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#5f7698';
+    ctx.font = '700 28px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText('No Scene Selected', canvas.width / 2, canvas.height / 2);
+    return;
+  }
+
+  canvas.width = scene.width;
+  canvas.height = scene.height;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = scene.backgroundColor || '#1a2238';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let y = 0; y < scene.height; y += 32) {
+    for (let x = 0; x < scene.width; x += 32) {
+      ctx.fillStyle = ((x / 32 + y / 32) % 2 === 0) ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.035)';
+      ctx.fillRect(x, y, 32, 32);
+    }
+  }
+
+  ensureSceneOrder(scene);
+  scene.objects.forEach(object => {
+    ctx.save();
+    ctx.globalAlpha = object.opacity;
+    const bounds = objectBounds(object);
+    if (object.type === 'text') {
+      ctx.fillStyle = '#f6f1e3';
+      ctx.font = `${Math.max(16, Math.round(16 * object.scale * 0.5))}px Georgia, serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(object.text || 'Text', object.x, object.y);
+    } else {
+      const spriteName = objectSpriteName(object);
+      const spriteCanvas = getSpriteCanvas(spriteName);
+      if (spriteCanvas) {
+        if (object.flipX) {
+          ctx.translate(object.x + bounds.w, object.y);
+          ctx.scale(-1, 1);
+          ctx.drawImage(spriteCanvas, 0, 0, bounds.w, bounds.h);
+        } else {
+          ctx.drawImage(spriteCanvas, object.x, object.y, bounds.w, bounds.h);
+        }
+      } else {
+        ctx.fillStyle = object.type === 'character' ? '#7ba4ff' : '#ff8aa0';
+        ctx.fillRect(bounds.x, bounds.y, bounds.w, bounds.h);
+      }
+    }
+    if (object.id === selectedObjectId) {
+      ctx.strokeStyle = '#ffdf7a';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(bounds.x - 2, bounds.y - 2, bounds.w + 4, bounds.h + 4);
+    }
+    ctx.restore();
+  });
+}
+
+function buildSceneList() {
+  const list = document.getElementById('scene-list');
+  list.innerHTML = '';
+  if (!scenes.length) {
+    list.innerHTML = '<div id="empty-state">No scenes yet.<br>Create one to start composing.</div>';
+    return;
+  }
+  scenes.forEach(scene => {
+    const row = document.createElement('div');
+    row.className = 'scene-row' + (scene.id === selectedSceneId ? ' active' : '');
+    const name = document.createElement('div');
+    name.className = 'scene-name';
+    name.textContent = scene.name;
+    const meta = document.createElement('div');
+    meta.className = 'scene-meta';
+    meta.textContent = `${scene.width}×${scene.height} · ${scene.objects.length} object${scene.objects.length !== 1 ? 's' : ''}`;
+    row.append(name, meta);
+    row.addEventListener('click', () => selectScene(scene.id));
+    list.appendChild(row);
+  });
+}
+
+function buildOptions(select, items, currentValue, includeBlank = true, blankLabel = '— none —') {
+  select.innerHTML = includeBlank ? `<option value="">${blankLabel}</option>` : '';
+  items.forEach(item => {
+    const option = document.createElement('option');
+    option.value = item.value;
+    option.textContent = item.label;
+    if (item.value === currentValue) option.selected = true;
+    select.appendChild(option);
+  });
+}
+
+function buildInspector() {
+  const inspector = document.getElementById('inspector');
+  const scene = getScene();
+  if (!scene) {
+    inspector.innerHTML = '<div id="empty-state">Select or create a scene to edit it.</div>';
+    document.getElementById('stage-title').textContent = 'No scene selected';
+    document.getElementById('stage-info').textContent = 'Create or load a scene to start composing.';
+    document.getElementById('st-scene').textContent = 'Scene: none';
+    document.getElementById('st-objects').textContent = 'Objects: 0';
+    document.getElementById('st-selected').textContent = 'Selected: none';
+    return;
+  }
+
+  const selectedObject = getSceneObject(scene, selectedObjectId) || null;
+  document.getElementById('stage-title').textContent = scene.name;
+  document.getElementById('stage-info').textContent = `${scene.width}×${scene.height} · ${scene.objects.length} object${scene.objects.length !== 1 ? 's' : ''}`;
+  document.getElementById('st-scene').textContent = `Scene: ${scene.name}`;
+  document.getElementById('st-objects').textContent = `Objects: ${scene.objects.length}`;
+  document.getElementById('st-selected').textContent = `Selected: ${selectedObject ? selectedObject.name : 'none'}`;
+
+  inspector.innerHTML = `
+    <div class="section">
+      <div class="section-title">Scene</div>
+      <div class="form-row"><label>Name</label><input type="text" id="scene-name" value="${scene.name}"></div>
+      <div class="two-col">
+        <div class="form-row"><label>W</label><input type="number" id="scene-width" min="160" max="2560" value="${scene.width}"></div>
+        <div class="form-row"><label>H</label><input type="number" id="scene-height" min="120" max="1440" value="${scene.height}"></div>
+      </div>
+      <div class="form-row"><label>BG</label><input type="color" id="scene-bg" value="${scene.backgroundColor || '#1a2238'}"></div>
+      <div class="form-row"><label>Dialog</label><select id="scene-dialog"></select></div>
+      <div class="form-row"><label>Need Flag</label><input type="text" id="scene-required-flag" value="${scene.requiredFlag || ''}" placeholder="intro_ready"></div>
+      <div class="form-row"><label>Set Flag</label><input type="text" id="scene-set-flag" value="${scene.setFlag || ''}" placeholder="saw_intro"></div>
+      <div class="form-row"><label>Clear Flag</label><input type="text" id="scene-clear-flag" value="${scene.clearFlag || ''}" placeholder="intro_pending"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Add Object</div>
+      <div class="form-row"><button id="btn-add-sprite" style="flex:1">+ Sprite</button><button id="btn-add-character" style="flex:1">+ Character</button></div>
+      <div class="form-row"><button id="btn-add-text" style="flex:1">+ Text</button></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Objects</div>
+      <div id="objects-list"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Selected Object</div>
+      <div id="object-editor">${selectedObject ? '' : '<div style="color:#607090">Select an object on the stage or from the list.</div>'}</div>
+    </div>
+  `;
+
+  const dialogSelect = document.getElementById('scene-dialog');
+  buildOptions(dialogSelect, getProjectDialogs().map(dialog => ({ value: dialog.id, label: dialog.name })), scene.dialogId);
+  dialogSelect.addEventListener('change', () => { scene.dialogId = dialogSelect.value; scheduleSave(); });
+  document.getElementById('scene-name').addEventListener('input', e => { scene.name = e.target.value || 'New Scene'; buildSceneList(); scheduleSave(); });
+  document.getElementById('scene-width').addEventListener('change', e => { scene.width = Math.max(160, Math.min(2560, parseInt(e.target.value) || 960)); renderAll(); scheduleSave(); });
+  document.getElementById('scene-height').addEventListener('change', e => { scene.height = Math.max(120, Math.min(1440, parseInt(e.target.value) || 540)); renderAll(); scheduleSave(); });
+  document.getElementById('scene-bg').addEventListener('input', e => { scene.backgroundColor = e.target.value; renderStage(); scheduleSave(); });
+  document.getElementById('scene-required-flag').addEventListener('change', e => { scene.requiredFlag = e.target.value.trim(); scheduleSave(); });
+  document.getElementById('scene-set-flag').addEventListener('change', e => { scene.setFlag = e.target.value.trim(); scheduleSave(); });
+  document.getElementById('scene-clear-flag').addEventListener('change', e => { scene.clearFlag = e.target.value.trim(); scheduleSave(); });
+
+  document.getElementById('btn-add-sprite').addEventListener('click', () => addObject('sprite'));
+  document.getElementById('btn-add-character').addEventListener('click', () => addObject('character'));
+  document.getElementById('btn-add-text').addEventListener('click', () => addObject('text'));
+
+  const objectsList = document.getElementById('objects-list');
+  if (!scene.objects.length) {
+    objectsList.innerHTML = '<div style="color:#607090">No objects yet.</div>';
+  } else {
+    ensureSceneOrder(scene);
+    scene.objects.forEach(object => {
+      const row = document.createElement('div');
+      row.className = 'object-row' + (object.id === selectedObjectId ? ' active' : '');
+      const name = document.createElement('div');
+      name.className = 'object-row-name';
+      name.textContent = object.name;
+      const meta = document.createElement('div');
+      meta.className = 'object-row-meta';
+      meta.textContent = `${object.type} · ${Math.round(object.x)}, ${Math.round(object.y)} · z ${object.z}`;
+      row.append(name, meta);
+      row.addEventListener('click', () => selectObject(object.id));
+      objectsList.appendChild(row);
+    });
+  }
+
+  if (selectedObject) {
+    const editor = document.getElementById('object-editor');
+    editor.innerHTML = `
+      <div class="form-row"><label>Name</label><input type="text" id="obj-name" value="${selectedObject.name}"></div>
+      <div class="form-row"><label>Type</label><input type="text" value="${selectedObject.type}" disabled></div>
+      <div class="two-col">
+        <div class="form-row"><label>X</label><input type="number" id="obj-x" value="${selectedObject.x}"></div>
+        <div class="form-row"><label>Y</label><input type="number" id="obj-y" value="${selectedObject.y}"></div>
+      </div>
+      <div class="two-col">
+        <div class="form-row"><label>Scale</label><input type="number" id="obj-scale" step="0.25" min="0.25" max="8" value="${selectedObject.scale}"></div>
+        <div class="form-row"><label>Opacity</label><input type="number" id="obj-opacity" step="0.1" min="0.1" max="1" value="${selectedObject.opacity}"></div>
+      </div>
+      <div class="form-row"><label>Flip X</label><select id="obj-flip"><option value="false"${selectedObject.flipX ? '' : ' selected'}>No</option><option value="true"${selectedObject.flipX ? ' selected' : ''}>Yes</option></select></div>
+      ${selectedObject.type === 'sprite' ? '<div class="form-row"><label>Sprite</label><select id="obj-sprite"></select></div>' : ''}
+      ${selectedObject.type === 'character' ? '<div class="form-row"><label>Character</label><select id="obj-character"></select></div>' : ''}
+      ${selectedObject.type === 'text' ? `<div class="form-row"><label>Text</label><textarea id="obj-text">${selectedObject.text || ''}</textarea></div>` : ''}
+      <div class="form-row"><button id="btn-raise" style="flex:1">Bring Forward</button><button id="btn-lower" style="flex:1">Send Back</button></div>
+      <div class="form-row"><button id="btn-delete-object" class="red" style="width:100%">Delete Object</button></div>
+    `;
+
+    document.getElementById('obj-name').addEventListener('input', e => { selectedObject.name = e.target.value || selectedObject.name; buildInspector(); renderStage(); scheduleSave(); });
+    document.getElementById('obj-x').addEventListener('change', e => { selectedObject.x = parseInt(e.target.value) || 0; renderStage(); scheduleSave(); });
+    document.getElementById('obj-y').addEventListener('change', e => { selectedObject.y = parseInt(e.target.value) || 0; renderStage(); scheduleSave(); });
+    document.getElementById('obj-scale').addEventListener('change', e => { selectedObject.scale = Math.max(0.25, Math.min(8, Number(e.target.value) || 1)); renderStage(); scheduleSave(); });
+    document.getElementById('obj-opacity').addEventListener('change', e => { selectedObject.opacity = Math.max(0.1, Math.min(1, Number(e.target.value) || 1)); renderStage(); scheduleSave(); });
+    document.getElementById('obj-flip').addEventListener('change', e => { selectedObject.flipX = e.target.value === 'true'; renderStage(); scheduleSave(); });
+    if (selectedObject.type === 'sprite') {
+      const select = document.getElementById('obj-sprite');
+      buildOptions(select, Object.keys(getProjectSprites()).map(name => ({ value: name, label: name })), selectedObject.spriteId);
+      select.addEventListener('change', () => { selectedObject.spriteId = select.value; if (!selectedObject.name || selectedObject.name === 'Sprite') selectedObject.name = select.value || 'Sprite'; renderAll(); scheduleSave(); });
+    }
+    if (selectedObject.type === 'character') {
+      const select = document.getElementById('obj-character');
+      buildOptions(select, getProjectCharacters().map(character => ({ value: character.id, label: character.name })), selectedObject.characterId);
+      select.addEventListener('change', () => { selectedObject.characterId = select.value; selectedObject.name = getCharacter(select.value)?.name || 'Character'; renderAll(); scheduleSave(); });
+    }
+    if (selectedObject.type === 'text') {
+      document.getElementById('obj-text').addEventListener('input', e => { selectedObject.text = e.target.value; renderStage(); scheduleSave(); });
+    }
+    document.getElementById('btn-raise').addEventListener('click', () => {
+      const index = scene.objects.findIndex(object => object.id === selectedObject.id);
+      if (index < scene.objects.length - 1) {
+        [scene.objects[index], scene.objects[index + 1]] = [scene.objects[index + 1], scene.objects[index]];
+        ensureSceneOrder(scene); renderAll(); scheduleSave();
+      }
+    });
+    document.getElementById('btn-lower').addEventListener('click', () => {
+      const index = scene.objects.findIndex(object => object.id === selectedObject.id);
+      if (index > 0) {
+        [scene.objects[index], scene.objects[index - 1]] = [scene.objects[index - 1], scene.objects[index]];
+        ensureSceneOrder(scene); renderAll(); scheduleSave();
+      }
+    });
+    document.getElementById('btn-delete-object').addEventListener('click', deleteSelectedObject);
+  }
+}
+
+function renderAll() {
+  buildSceneList();
+  buildInspector();
+  renderStage();
+}
+
+function canvasPointer(event) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  return {
+    x: Math.round((event.clientX - rect.left) * scaleX),
+    y: Math.round((event.clientY - rect.top) * scaleY),
+  };
+}
+
+canvas.addEventListener('mousedown', event => {
+  const scene = getScene();
+  if (!scene) return;
+  const point = canvasPointer(event);
+  const objects = [...scene.objects].sort((a, b) => b.z - a.z);
+  const hit = objects.find(object => {
+    const bounds = objectBounds(object);
+    return point.x >= bounds.x && point.y >= bounds.y && point.x <= bounds.x + bounds.w && point.y <= bounds.y + bounds.h;
+  });
+  if (hit) {
+    selectedObjectId = hit.id;
+    dragState = { id: hit.id, offsetX: point.x - hit.x, offsetY: point.y - hit.y };
+    canvas.classList.add('dragging');
+  } else {
+    selectedObjectId = null;
+  }
+  renderAll();
+});
+
+window.addEventListener('mousemove', event => {
+  if (!dragState) return;
+  const scene = getScene();
+  const object = getSceneObject(scene, dragState.id);
+  if (!object) return;
+  const point = canvasPointer(event);
+  object.x = point.x - dragState.offsetX;
+  object.y = point.y - dragState.offsetY;
+  renderStage();
+  buildInspector();
+});
+
+window.addEventListener('mouseup', () => {
+  if (!dragState) return;
+  dragState = null;
+  canvas.classList.remove('dragging');
+  scheduleSave();
+});
+
+function renderSceneToText() {
+  const scene = getScene();
+  if (!scene) return JSON.stringify({ scene: null });
+  return JSON.stringify({
+    note: 'Scene coordinates use a top-left origin; x increases right, y increases down.',
+    scene: {
+      id: scene.id,
+      name: scene.name,
+      width: scene.width,
+      height: scene.height,
+      dialogId: scene.dialogId,
+      requiredFlag: scene.requiredFlag,
+      setFlag: scene.setFlag,
+      clearFlag: scene.clearFlag,
+    },
+    selectedObjectId,
+    objects: scene.objects.map(object => ({
+      id: object.id,
+      name: object.name,
+      type: object.type,
+      x: object.x,
+      y: object.y,
+      scale: object.scale,
+      z: object.z,
+      spriteId: object.spriteId,
+      characterId: object.characterId,
+      text: object.type === 'text' ? object.text : '',
+    })),
+  });
+}
+
+window.render_game_to_text = renderSceneToText;
+window.advanceTime = () => renderStage();
+
+document.getElementById('btn-new-scene').addEventListener('click', createScene);
+document.getElementById('btn-list-new').addEventListener('click', createScene);
+document.getElementById('btn-save').addEventListener('click', saveToProject);
+
+window.addEventListener('storage', e => {
+  if (e.key === PROJECT_KEY) {
+    loadFromProject();
+    renderAll();
+  }
+});
+
+loadFromProject();
+if (!scenes.length) {
+  scenes = [];
+}
+renderAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Character Editor — RPG Studio</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;
+         font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+
+    /* ── Header ── */
+    #header{background:#16213e;border-bottom:1px solid #0f3460;padding:6px 12px;
+            display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+    #header h1{font-size:14px;font-weight:700;color:#e94560;letter-spacing:1px;white-space:nowrap}
+    .sep{width:1px;height:20px;background:#0f3460;flex-shrink:0}
+    button{background:#0f3460;border:1px solid #1a4a7a;color:#c0d0e0;border-radius:5px;
+           padding:4px 10px;cursor:pointer;font-size:12px;transition:background .12s;white-space:nowrap}
+    button:hover{background:#1a5a9a;border-color:#4a8aba}
+    button.active{background:#e94560;border-color:#ff6a80;color:#fff}
+    button.green{background:#1a6a3a;border-color:#2a9a5a;color:#afffcf;font-weight:600}
+    button.green:hover{background:#2a8a4a}
+    a.hub-link{color:#4a8aba;font-size:12px;text-decoration:none;padding:4px 8px;
+               background:#0f3460;border:1px solid #1a4a7a;border-radius:5px}
+    a.hub-link:hover{background:#1a5a9a;border-color:#4a8aba;color:#e0e0e0}
+
+    /* ── Main ── */
+    #main{display:flex;flex:1;overflow:hidden}
+
+    /* ── Left: character list ── */
+    #char-list-panel{width:185px;background:#16213e;border-right:1px solid #0f3460;
+                     display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+    #char-list-header{padding:8px 10px 6px;border-bottom:1px solid #0f3460;flex-shrink:0;
+                      display:flex;align-items:center;justify-content:space-between}
+    #char-list-header span{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#506070}
+    #char-count{font-size:11px;color:#4a8aba;font-weight:600}
+    #char-list{flex:1;overflow-y:auto;padding:6px}
+    #char-list::-webkit-scrollbar{width:4px}
+    #char-list::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:2px}
+    #btn-new-char{margin:6px;border-style:dashed;border-color:#2a5a8a;color:#4a8aba;
+                  background:transparent;font-size:12px}
+    #btn-new-char:hover{background:#0f3460;border-color:#4a8aba;color:#e0e0e0;border-style:solid}
+
+    .char-item{display:flex;align-items:center;gap:8px;padding:6px 7px;border-radius:6px;
+               border:1px solid transparent;cursor:pointer;margin-bottom:3px;
+               transition:border-color .1s,background .1s;position:relative}
+    .char-item:hover{background:#0f1f3a;border-color:#2a4a6a}
+    .char-item.active{background:#1a0f2a;border-color:#e94560}
+    .char-portrait{width:32px;height:32px;image-rendering:pixelated;flex-shrink:0;
+                   border:1px solid #1a3a6a;border-radius:4px}
+    .char-meta{flex:1;overflow:hidden}
+    .char-item-name{font-size:12px;color:#c0d0e0;font-weight:600;
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .char-type-badge{font-size:9px;padding:1px 6px;border-radius:20px;font-weight:700;
+                     text-transform:uppercase;letter-spacing:.5px;display:inline-block;margin-top:2px}
+    .badge-player{background:#1a4a2a;color:#4aff8a;border:1px solid #2a6a3a}
+    .badge-npc   {background:#1a2a6a;color:#6a9aff;border:1px solid #2a3a8a}
+    .badge-enemy {background:#5a1a1a;color:#ff6a6a;border:1px solid #7a2a2a}
+    .char-del{display:none;position:absolute;right:5px;top:50%;transform:translateY(-50%);
+              background:none;border:none;color:#506070;font-size:11px;cursor:pointer;padding:2px 4px;
+              border-radius:3px}
+    .char-item:hover .char-del{display:block}
+    .char-del:hover{color:#e94560;background:#2a0f1a}
+
+    /* ── Center: editor form ── */
+    #editor-center{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:18px}
+    #editor-center::-webkit-scrollbar{width:6px}
+    #editor-center::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:3px}
+
+    #empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+                 gap:12px;color:#506070;text-align:center}
+    #empty-state .big{font-size:48px}
+    #empty-state p{font-size:13px;line-height:1.7}
+
+    .section{background:#16213e;border:1px solid #1a3a6a;border-radius:8px;padding:14px 16px}
+    .section-title{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#506070;
+                   margin-bottom:12px;display:flex;align-items:center;gap:6px}
+    .section-title::after{content:'';flex:1;height:1px;background:#1a3a6a}
+
+    .form-row{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+    .form-row:last-child{margin-bottom:0}
+    .form-row label{font-size:12px;color:#8090a0;min-width:70px;flex-shrink:0}
+    .form-row input[type=text],.form-row input[type=number],.form-row select,.form-row textarea{
+      background:#0f3460;border:1px solid #1a4a7a;color:#e0e0e0;border-radius:5px;
+      padding:5px 8px;font-size:12px;flex:1}
+    .form-row input[type=text]:focus,.form-row input[type=number]:focus,
+    .form-row select:focus,.form-row textarea:focus{outline:none;border-color:#e94560}
+    .form-row textarea{resize:vertical;min-height:52px;font-family:inherit}
+    .form-row input[type=number]{width:72px;flex:none}
+
+    /* Type buttons */
+    .type-btns{display:flex;gap:6px}
+    .type-btn{padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;
+              text-transform:uppercase;letter-spacing:.5px;cursor:pointer;border:1px solid transparent;
+              opacity:0.45;transition:opacity .12s}
+    .type-btn:hover{opacity:0.75}
+    .type-btn.on{opacity:1}
+    .type-btn.t-player{background:#1a4a2a;color:#4aff8a;border-color:#2a6a3a}
+    .type-btn.t-npc   {background:#1a2a6a;color:#6a9aff;border-color:#2a3a8a}
+    .type-btn.t-enemy {background:#5a1a1a;color:#ff6a6a;border-color:#7a2a2a}
+
+    /* Sprite slots */
+    .sprite-slots{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .sprite-slot{display:flex;flex-direction:column;gap:5px}
+    .sprite-slot label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#506070}
+    .sprite-slot-row{display:flex;align-items:center;gap:6px}
+    .sprite-slot select{background:#0f3460;border:1px solid #1a4a7a;color:#e0e0e0;
+                         border-radius:5px;padding:4px 6px;font-size:11px;flex:1}
+    .sprite-slot canvas{width:32px;height:32px;image-rendering:pixelated;flex-shrink:0;
+                         border:1px solid #1a3a6a;border-radius:3px}
+
+    /* Stats grid */
+    .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .stat-field{display:flex;flex-direction:column;gap:4px}
+    .stat-field label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#506070}
+    .stat-field input{background:#0f3460;border:1px solid #1a4a7a;color:#e0e0e0;border-radius:5px;
+                       padding:5px 8px;font-size:13px;font-weight:600;text-align:center;width:100%}
+    .stat-field input:focus{outline:none;border-color:#e94560}
+
+    /* ── Right: preview ── */
+    #preview-panel{width:162px;background:#16213e;border-left:1px solid #0f3460;
+                   display:flex;flex-direction:column;align-items:center;padding:12px 10px;
+                   gap:10px;flex-shrink:0;overflow:hidden}
+    .preview-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#506070;
+                   align-self:flex-start}
+    #preview-canvas-wrap{background:repeating-conic-gradient(#2a2a4a 0% 25%,#222238 0% 50%) 0 0/10px 10px;
+                         border:1px solid #1a3a6a;border-radius:6px;
+                         display:flex;align-items:center;justify-content:center;
+                         width:140px;height:140px;flex-shrink:0}
+    #preview-canvas{image-rendering:pixelated;max-width:128px;max-height:128px}
+    #preview-info{font-size:10px;color:#506070;text-align:center}
+    .preview-state-btns{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+    .prev-btn{font-size:10px;padding:3px 8px;border-radius:20px;font-weight:600}
+    .prev-btn.active{background:#e94560;border-color:#ff6a80;color:#fff}
+
+    /* Status bar */
+    #statusbar{background:#16213e;border-top:1px solid #0f3460;padding:3px 12px;
+               font-size:11px;color:#506070;display:flex;gap:14px;flex-shrink:0}
+    #save-status{margin-left:auto;color:#2a6a4a}
+  </style>
+</head>
+<body>
+
+<!-- ═══════ HEADER ═══════ -->
+<div id="header">
+  <h1>&#128100; CHARACTERS</h1>
+  <div class="sep"></div>
+  <button id="btn-header-new">&#43; New Character</button>
+  <div class="sep"></div>
+  <button id="btn-save" class="green" data-tip="Save all characters (Ctrl+S)">&#128190; Save All</button>
+  <a href="index.html" class="hub-link" target="_self">&#8592; Hub</a>
+</div>
+
+<!-- ═══════ MAIN ═══════ -->
+<div id="main">
+
+  <!-- Character list -->
+  <div id="char-list-panel">
+    <div id="char-list-header">
+      <span>Characters</span>
+      <span id="char-count">0</span>
+    </div>
+    <div id="char-list"></div>
+    <button id="btn-new-char">&#43; New Character</button>
+  </div>
+
+  <!-- Editor form -->
+  <div id="editor-center">
+    <div id="empty-state">
+      <span class="big">&#128100;</span>
+      <p>No character selected.<br>Create a new character or select one from the list.</p>
+      <button id="btn-empty-new" style="margin-top:4px">&#43; New Character</button>
+    </div>
+  </div>
+
+  <!-- Preview panel -->
+  <div id="preview-panel">
+    <div class="preview-title">Live Preview</div>
+    <div id="preview-canvas-wrap">
+      <canvas id="preview-canvas" width="16" height="16"
+              style="width:64px;height:64px"></canvas>
+    </div>
+    <div id="preview-info" style="color:#3a5a7a">No sprite</div>
+    <div class="preview-state-btns">
+      <button class="prev-btn active" data-state="idle">Idle</button>
+      <button class="prev-btn" data-state="walk">Walk</button>
+      <button class="prev-btn" data-state="attack">Attack</button>
+      <button class="prev-btn" data-state="hurt">Hurt</button>
+    </div>
+    <div id="preview-frame-info" style="font-size:10px;color:#3a5a7a;text-align:center"></div>
+  </div>
+
+</div>
+
+<!-- Status bar -->
+<div id="statusbar">
+  <span id="st-char">No character loaded</span>
+  <span id="st-project">Project: —</span>
+  <span id="save-status"></span>
+</div>
+
+<script src="project-utils.js"></script>
+<script>
+'use strict';
+
+const { PROJECT_KEY, getProject, setProject } = window.ProjectUtils;
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+
+let characters   = [];   // local working copy
+let selectedId   = null; // currently edited character id
+let previewTimer = null;
+let previewFrame = 0;
+let previewState = 'idle'; // idle | walk | attack | hurt
+let saveDebounce = null;
+
+function newCharId() {
+  return 'char_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+}
+
+function blankCharacter() {
+  return {
+    id:    newCharId(),
+    name:  'New Character',
+    type:  'npc',
+    notes: '',
+    sprites: { idle: '', walk: '', attack: '', hurt: '' },
+    stats:   { hp: 100, attack: 10, defense: 5, speed: 3, level: 1 },
+    spawn:   { map: '', x: 0, y: 0 },
+    dialogId: '',
+  };
+}
+
+function getChar(id) { return characters.find(c => c.id === id); }
+
+// ══════════════════════════════════════════════
+//  LOAD / SAVE PROJECT
+// ══════════════════════════════════════════════
+
+function loadFromProject() {
+  const project = getProject();
+  characters = (project?.characters || []).map(c => JSON.parse(JSON.stringify(c)));
+  if (selectedId && !characters.some(c => c.id === selectedId)) selectedId = null;
+  document.getElementById('st-project').textContent =
+    'Project: ' + (project?.name || '—');
+  document.getElementById('char-count').textContent = characters.length;
+}
+
+function saveToProject() {
+  const project = getProject();
+  if (!project) { alert('No project found. Create one in the Hub first.'); return; }
+  project.characters = characters.map(c => JSON.parse(JSON.stringify(c)));
+  setProject(project);
+  document.getElementById('save-status').textContent = '✓ Saved ' +
+    new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  setTimeout(() => document.getElementById('save-status').textContent = '', 3000);
+}
+
+function scheduleSave() {
+  clearTimeout(saveDebounce);
+  saveDebounce = setTimeout(saveToProject, 600);
+}
+
+// ══════════════════════════════════════════════
+//  SPRITE HELPERS
+// ══════════════════════════════════════════════
+
+function getAllSprites() {
+  const project = getProject();
+  return project ? Object.entries(project.sprites || {}) : [];
+}
+
+function getSpriteData(name) {
+  const project = getProject();
+  return project?.sprites?.[name] || null;
+}
+
+function renderSpriteToCanvas(canvas, sd, frameIndex = 0) {
+  if (!sd) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+  canvas.width  = sd.gridW;
+  canvas.height = sd.gridH;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, sd.gridW, sd.gridH);
+  for (let y = 0; y < sd.gridH; y++) for (let x = 0; x < sd.gridW; x++) {
+    ctx.fillStyle = (x+y)%2===0 ? '#3a3a5a' : '#2a2a4a';
+    ctx.fillRect(x, y, 1, 1);
+  }
+  const frame = sd.frames?.[frameIndex] || [];
+  frame.forEach((col, i) => {
+    if (col) { ctx.fillStyle = col; ctx.fillRect(i%sd.gridW, Math.floor(i/sd.gridW), 1, 1); }
+  });
+}
+
+// ══════════════════════════════════════════════
+//  PREVIEW ANIMATION
+// ══════════════════════════════════════════════
+
+function startPreview(spriteName) {
+  stopPreview();
+  const sd = getSpriteData(spriteName);
+  const canvas = document.getElementById('preview-canvas');
+  const info   = document.getElementById('preview-info');
+  const finfo  = document.getElementById('preview-frame-info');
+
+  if (!sd) {
+    canvas.width = 16; canvas.height = 16;
+    canvas.style.width = '64px'; canvas.style.height = '64px';
+    renderSpriteToCanvas(canvas, null);
+    info.textContent = 'No sprite'; finfo.textContent = '';
+    return;
+  }
+
+  // Size the canvas to fill the preview box proportionally
+  const maxPx = 120;
+  const scale = Math.min(maxPx / sd.gridW, maxPx / sd.gridH, 8);
+  const dispW = Math.round(sd.gridW * scale);
+  const dispH = Math.round(sd.gridH * scale);
+  canvas.style.width  = dispW + 'px';
+  canvas.style.height = dispH + 'px';
+
+  info.textContent   = `${sd.gridW}×${sd.gridH} · ${(sd.frames||[]).length} frame${(sd.frames||[]).length!==1?'s':''}`;
+  previewFrame = 0;
+  renderSpriteToCanvas(canvas, sd, 0);
+
+  if ((sd.frames||[]).length > 1) {
+    const fps = sd.fps || 8;
+    finfo.textContent = `${fps} fps`;
+    previewTimer = setInterval(() => {
+      previewFrame = (previewFrame + 1) % sd.frames.length;
+      renderSpriteToCanvas(canvas, sd, previewFrame);
+      finfo.textContent = `frame ${previewFrame + 1}/${sd.frames.length} · ${fps}fps`;
+    }, 1000 / fps);
+  } else {
+    finfo.textContent = '';
+  }
+}
+
+function stopPreview() {
+  if (previewTimer) { clearInterval(previewTimer); previewTimer = null; }
+}
+
+function updatePreviewState(state) {
+  previewState = state;
+  document.querySelectorAll('.prev-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.state === state));
+  const char = getChar(selectedId);
+  if (char) startPreview(char.sprites?.[state] || '');
+}
+
+document.querySelectorAll('.prev-btn').forEach(b =>
+  b.addEventListener('click', () => updatePreviewState(b.dataset.state)));
+
+// ══════════════════════════════════════════════
+//  BUILD SPRITE SELECT OPTIONS
+// ══════════════════════════════════════════════
+
+function buildSpriteOptions(selectEl, currentValue) {
+  const sprites = getAllSprites();
+  selectEl.innerHTML = '<option value="">— none —</option>';
+  sprites.forEach(([name]) => {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    if (name === currentValue) opt.selected = true;
+    selectEl.appendChild(opt);
+  });
+}
+
+function buildMapOptions(selectEl, currentValue) {
+  const project = getProject();
+  const maps = project?.maps || [];
+  selectEl.innerHTML = '<option value="">— none —</option>';
+  maps.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.name; opt.textContent = m.name;
+    if (m.name === currentValue) opt.selected = true;
+    selectEl.appendChild(opt);
+  });
+}
+
+function buildDialogOptions(selectEl, currentValue) {
+  const project = getProject();
+  const dialogs = project?.dialogs || [];
+  selectEl.innerHTML = '<option value="">— none —</option>';
+  dialogs.forEach(dialog => {
+    const opt = document.createElement('option');
+    opt.value = dialog.id;
+    opt.textContent = dialog.name;
+    if (dialog.id === currentValue) opt.selected = true;
+    selectEl.appendChild(opt);
+  });
+}
+
+// ══════════════════════════════════════════════
+//  CHARACTER LIST
+// ══════════════════════════════════════════════
+
+function buildCharList() {
+  const list = document.getElementById('char-list');
+  list.innerHTML = '';
+  document.getElementById('char-count').textContent = characters.length;
+
+  if (!characters.length) {
+    list.innerHTML = '<div style="padding:12px 8px;text-align:center;color:#3a5a7a;font-size:11px">No characters yet.</div>';
+    return;
+  }
+
+  characters.forEach(char => {
+    const item = document.createElement('div');
+    item.className = 'char-item' + (char.id === selectedId ? ' active' : '');
+    item.dataset.id = char.id;
+
+    // Portrait
+    const portrait = document.createElement('canvas');
+    portrait.className = 'char-portrait';
+    const idleSd = getSpriteData(char.sprites?.idle || '');
+    renderSpriteToCanvas(portrait, idleSd, 0);
+
+    // Meta
+    const meta = document.createElement('div');
+    meta.className = 'char-meta';
+    const name = document.createElement('div');
+    name.className = 'char-item-name';
+    name.textContent = char.name || 'Unnamed';
+
+    const badge = document.createElement('span');
+    badge.className = `char-type-badge badge-${char.type || 'npc'}`;
+    badge.textContent = char.type || 'npc';
+
+    meta.append(name, badge);
+
+    // Delete
+    const del = document.createElement('button');
+    del.className = 'char-del'; del.textContent = '✕'; del.title = 'Delete character';
+    del.addEventListener('click', e => {
+      e.stopPropagation();
+      if (!confirm(`Delete "${char.name}"?`)) return;
+      characters = characters.filter(c => c.id !== char.id);
+      if (selectedId === char.id) { selectedId = null; renderEditor(); }
+      buildCharList();
+      scheduleSave();
+    });
+
+    item.append(portrait, meta, del);
+    item.addEventListener('click', () => selectChar(char.id));
+    list.appendChild(item);
+  });
+}
+
+// ══════════════════════════════════════════════
+//  SELECT CHARACTER
+// ══════════════════════════════════════════════
+
+function selectChar(id) {
+  selectedId = id;
+  buildCharList();
+  renderEditor();
+  const char = getChar(id);
+  if (char) {
+    document.getElementById('st-char').textContent = `Editing: ${char.name}`;
+    previewState = 'idle';
+    document.querySelectorAll('.prev-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.state === 'idle'));
+    startPreview(char.sprites?.idle || '');
+  }
+}
+
+// ══════════════════════════════════════════════
+//  RENDER EDITOR FORM
+// ══════════════════════════════════════════════
+
+function renderEditor() {
+  const center = document.getElementById('editor-center');
+  const char   = getChar(selectedId);
+
+  if (!char) {
+    center.innerHTML = `
+      <div id="empty-state">
+        <span class="big">&#128100;</span>
+        <p>No character selected.<br>Create a new character or select one from the list.</p>
+        <button id="btn-empty-new" style="margin-top:4px">&#43; New Character</button>
+      </div>`;
+    document.getElementById('btn-empty-new').addEventListener('click', createNewChar);
+    stopPreview();
+    startPreview('');
+    return;
+  }
+
+  center.innerHTML = `
+    <!-- Identity -->
+    <div class="section">
+      <div class="section-title">Identity</div>
+      <div class="form-row">
+        <label>Name</label>
+        <input type="text" id="f-name" value="${esc(char.name)}" placeholder="Character name">
+      </div>
+      <div class="form-row">
+        <label>Type</label>
+        <div class="type-btns">
+          <button class="type-btn t-player${char.type==='player'?' on':''}" data-type="player">Player</button>
+          <button class="type-btn t-npc${char.type==='npc'?' on':''}" data-type="npc">NPC</button>
+          <button class="type-btn t-enemy${char.type==='enemy'?' on':''}" data-type="enemy">Enemy</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Notes</label>
+        <textarea id="f-notes" placeholder="Description, backstory, behavior notes…">${esc(char.notes||'')}</textarea>
+      </div>
+    </div>
+
+    <!-- Sprites -->
+    <div class="section">
+      <div class="section-title">Animation Sprites</div>
+      <div class="sprite-slots">
+        <div class="sprite-slot">
+          <label>Idle</label>
+          <div class="sprite-slot-row">
+            <select id="sp-idle"></select>
+            <canvas id="sp-idle-preview" width="16" height="16"></canvas>
+          </div>
+        </div>
+        <div class="sprite-slot">
+          <label>Walk</label>
+          <div class="sprite-slot-row">
+            <select id="sp-walk"></select>
+            <canvas id="sp-walk-preview" width="16" height="16"></canvas>
+          </div>
+        </div>
+        <div class="sprite-slot">
+          <label>Attack</label>
+          <div class="sprite-slot-row">
+            <select id="sp-attack"></select>
+            <canvas id="sp-attack-preview" width="16" height="16"></canvas>
+          </div>
+        </div>
+        <div class="sprite-slot">
+          <label>Hurt</label>
+          <div class="sprite-slot-row">
+            <select id="sp-hurt"></select>
+            <canvas id="sp-hurt-preview" width="16" height="16"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="section">
+      <div class="section-title">Stats</div>
+      <div class="stats-grid">
+        <div class="stat-field"><label>HP</label><input type="number" id="st-hp" value="${char.stats.hp}" min="0"></div>
+        <div class="stat-field"><label>Attack</label><input type="number" id="st-atk" value="${char.stats.attack}" min="0"></div>
+        <div class="stat-field"><label>Defense</label><input type="number" id="st-def" value="${char.stats.defense}" min="0"></div>
+        <div class="stat-field"><label>Speed</label><input type="number" id="st-spd" value="${char.stats.speed}" min="1" max="20"></div>
+        <div class="stat-field"><label>Level</label><input type="number" id="st-lvl" value="${char.stats.level}" min="1" max="99"></div>
+      </div>
+    </div>
+
+    <!-- Spawn -->
+    <div class="section">
+      <div class="section-title">Spawn Location</div>
+      <div class="form-row">
+        <label>Map</label>
+        <select id="f-spawn-map"></select>
+      </div>
+      <div class="form-row">
+        <label>Tile X</label>
+        <input type="number" id="f-spawn-x" value="${char.spawn.x}" min="0">
+        <label style="margin-left:8px">Tile Y</label>
+        <input type="number" id="f-spawn-y" value="${char.spawn.y}" min="0">
+      </div>
+    </div>
+
+    <!-- Dialog -->
+    <div class="section">
+      <div class="section-title">Dialog</div>
+      <div class="form-row">
+        <label>Assigned</label>
+        <select id="f-dialog-id"></select>
+      </div>
+      <div id="dialog-status" style="font-size:12px;color:#506070;padding:2px 0">
+        ${char.dialogId
+          ? `<span style="color:#6a9aff">&#128172; Dialog assigned: <b>${esc(char.dialogId)}</b></span>`
+          : 'No dialog assigned yet.'}
+      </div>
+      <div class="form-row" style="margin-top:10px">
+        <label>Editor</label>
+        <a href="dialog-editor.html" class="hub-link" target="_self">Open Dialog Editor &#8594;</a>
+      </div>
+    </div>`;
+
+  // Populate sprite dropdowns
+  ['idle','walk','attack','hurt'].forEach(slot => {
+    const sel = document.getElementById(`sp-${slot}`);
+    buildSpriteOptions(sel, char.sprites[slot] || '');
+    updateSlotPreview(slot, char.sprites[slot] || '');
+    sel.addEventListener('change', () => {
+      char.sprites[slot] = sel.value;
+      updateSlotPreview(slot, sel.value);
+      if (slot === previewState) startPreview(sel.value);
+      buildCharList(); // refresh portrait
+      scheduleSave();
+    });
+  });
+
+  // Map dropdown
+  const mapSel = document.getElementById('f-spawn-map');
+  buildMapOptions(mapSel, char.spawn.map || '');
+  mapSel.addEventListener('change', () => { char.spawn.map = mapSel.value; scheduleSave(); });
+
+  const dialogSel = document.getElementById('f-dialog-id');
+  buildDialogOptions(dialogSel, char.dialogId || '');
+  dialogSel.addEventListener('change', () => {
+    char.dialogId = dialogSel.value;
+    const status = document.getElementById('dialog-status');
+    status.innerHTML = char.dialogId
+      ? `<span style="color:#6a9aff">&#128172; Dialog assigned: <b>${esc(char.dialogId)}</b></span>`
+      : 'No dialog assigned yet.';
+    scheduleSave();
+  });
+
+  // Text / number inputs
+  document.getElementById('f-name').addEventListener('input', e => {
+    char.name = e.target.value;
+    buildCharList();
+    document.getElementById('st-char').textContent = `Editing: ${char.name}`;
+    scheduleSave();
+  });
+  document.getElementById('f-notes').addEventListener('input', e => {
+    char.notes = e.target.value; scheduleSave();
+  });
+
+  // Type buttons
+  document.querySelectorAll('.type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      char.type = btn.dataset.type;
+      document.querySelectorAll('.type-btn').forEach(b =>
+        b.classList.toggle('on', b.dataset.type === char.type));
+      buildCharList(); scheduleSave();
+    });
+  });
+
+  // Stat inputs
+  const statMap = {
+    'st-hp':char.stats,'st-atk':char.stats,'st-def':char.stats,
+    'st-spd':char.stats,'st-lvl':char.stats
+  };
+  const statKeys = {'st-hp':'hp','st-atk':'attack','st-def':'defense','st-spd':'speed','st-lvl':'level'};
+  Object.keys(statKeys).forEach(id => {
+    document.getElementById(id).addEventListener('change', e => {
+      char.stats[statKeys[id]] = parseInt(e.target.value) || 0;
+      scheduleSave();
+    });
+  });
+
+  // Spawn coords
+  document.getElementById('f-spawn-x').addEventListener('change', e => {
+    char.spawn.x = parseInt(e.target.value) || 0; scheduleSave();
+  });
+  document.getElementById('f-spawn-y').addEventListener('change', e => {
+    char.spawn.y = parseInt(e.target.value) || 0; scheduleSave();
+  });
+}
+
+function updateSlotPreview(slot, spriteName) {
+  const canvas = document.getElementById(`sp-${slot}-preview`);
+  if (!canvas) return;
+  const sd = getSpriteData(spriteName);
+  renderSpriteToCanvas(canvas, sd, 0);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══════════════════════════════════════════════
+//  CREATE NEW CHARACTER
+// ══════════════════════════════════════════════
+
+function createNewChar() {
+  const char = blankCharacter();
+  characters.push(char);
+  selectedId = char.id;
+  buildCharList();
+  renderEditor();
+  startPreview('');
+  document.getElementById('st-char').textContent = `Editing: ${char.name}`;
+  scheduleSave();
+  // Focus name input
+  setTimeout(() => {
+    const inp = document.getElementById('f-name');
+    if (inp) { inp.focus(); inp.select(); }
+  }, 50);
+}
+
+// ══════════════════════════════════════════════
+//  EVENTS
+// ══════════════════════════════════════════════
+
+document.getElementById('btn-new-char').addEventListener('click', createNewChar);
+document.getElementById('btn-header-new').addEventListener('click', createNewChar);
+document.getElementById('btn-save').addEventListener('click', saveToProject);
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase() === 's') {
+    e.preventDefault(); saveToProject();
+  }
+});
+
+// Refresh if project changed in another tab
+window.addEventListener('storage', e => {
+  if (e.key === PROJECT_KEY) {
+    loadFromProject();
+    buildCharList();
+    if (selectedId) renderEditor();
+  }
+});
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+
+loadFromProject();
+buildCharList();
+renderEditor();
+startPreview('');
+</script>
+</body>
+</html>

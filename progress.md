@@ -1,0 +1,73 @@
+Original prompt: make me a program for a simple pixel art creator where the untouched pixels are transparent by default. let me be able to export the pictures so i can use them in games.
+
+2026-03-29
+- Started a stabilization pass across the RPG Studio suite.
+- Goal: fix broken undo/redo behavior, harden project/file normalization, and remove unsafe rendering of imported project data.
+- Added `project-utils.js` for shared project/schema normalization across the hub and tools.
+- Patched the pixel art editor and map editor to record history after real mutations instead of before them.
+- Replaced unsafe project-data `innerHTML` rendering in the hub, map list, and character list with safer DOM construction where it mattered.
+- Verification:
+- Inline script syntax checked successfully with `node --input-type=module -e ...` against all four HTML files plus `project-utils.js`.
+- Browser smoke check passed via Playwright screenshots for `/index.html`, `/pixel-art-creator.html`, `/map-editor.html`, and `/character-editor.html`.
+- Added `dialog-editor.html` as the next suite tool with dialog list, node editing, branching choices, character linking, and preview.
+- Updated `project-utils.js` to normalize dialog data.
+- Wired the hub to mark Dialog Editor as ready and added a real dialog selector/link in the character editor.
+- Verified syntax again after dialog work and smoke-checked `/index.html`, `/dialog-editor.html`, and `/character-editor.html` on a local server.
+- Added `game-preview.html` as a playable browser preview wired to shared project data.
+- Game Preview v1 loads a map plus spawned characters, supports tile-based movement, collision checks, NPC interaction, and dialog playback using saved dialog trees.
+- Wired the hub to mark Game Preview as ready and open the new page.
+- Fixed a live preview bug where dialog speaker rendering crashed because `getCharacterName()` was missing.
+- Verification:
+- Inline script syntax checked successfully with `node --input-type=module -e ...` against the suite including `game-preview.html`.
+- Browser smoke checks passed for `/index.html` and `/game-preview.html` empty states.
+- A seeded Playwright smoke run confirmed movement, NPC interaction, and dialog branching in the Game Preview.
+- Extended shared map normalization with `entrances` and `triggers` so maps can carry transition/dialog/message events.
+- Upgraded `map-editor.html` with an Entrances & Triggers panel, marker overlays, placement-on-map flow, and undo/redo coverage for marker edits.
+- Upgraded `game-preview.html` so stepping onto a trigger can transition to another map entrance, open a dialog, or show a toast message.
+- Also improved preview rendering so the selected player character is still rendered on the active map even if its saved spawn map does not match yet.
+- Verification:
+- Trigger/transition syntax checked successfully for `project-utils.js`, `map-editor.html`, and `game-preview.html`.
+- The `develop-web-game` Playwright client could not run directly because the local environment is missing the `playwright` package for that script, so validation used the `npx playwright screenshot` fallback workflow.
+- A seeded browser smoke scenario confirmed this sequence end-to-end: walk into transition trigger → arrive at named destination entrance → step into dialog trigger → step into message trigger.
+- Added shared image import helpers to `project-utils.js` for browser-side image loading, scaling, frame extraction, quantization, and sprite-safe slug naming.
+- Added `Import` to `pixel-art-creator.html` so PNG/JPG/WebP files can be converted into the current sprite canvas with fit/fill/stretch, optional palette reduction, and optional corner-color transparency removal.
+- Added `Import Image` to `map-editor.html` so a source image can be converted into generated tile sprites and a saved map layer in one pass.
+- Map import creates deduplicated tile sprites, tags them for the project tile picker, rebuilds the active map, and saves the generated map into the project automatically.
+- Verification:
+- Inline script syntax checked successfully for `project-utils.js`, `pixel-art-creator.html`, and `map-editor.html`.
+- Browser smoke checks passed on a local server using a generated PNG test asset:
+- `pixel-art-creator.html` imported the image and rendered the expected sampled pixel color `[255, 51, 85, 255]`.
+- `map-editor.html` imported the same image into a map, generated `1` tile sprite, and rendered the expected sampled map pixel color `[202, 40, 66, 255]`.
+- Follow-up ideas:
+- Add a dedicated tileset slicer flow for sprite sheets.
+- Add true large backdrop/background layer support in map rendering instead of only image-to-tile conversion.
+- Replace prompt/confirm import options with an in-app import modal once the workflow is settled.
+- Added a simple flags system to the shared project schema plus dialog choices/nodes and map triggers.
+- Dialog authoring now supports choice requirements and set/clear flag effects, and node entry can set or clear flags.
+- Trigger authoring now supports required flags, blocked messages, and set/clear flag effects.
+- Game Preview now keeps runtime flags, exposes them in the HUD/text state, lets dialog choices and triggers change them, and respects required-flag gating during play.
+- Verification:
+- Syntax checked successfully for `project-utils.js`, `dialog-editor.html`, `map-editor.html`, and `game-preview.html`.
+- The `develop-web-game` Playwright client still could not run directly because the local environment is missing the `playwright` package for that script, so validation again used the `npx playwright screenshot` fallback workflow.
+- A seeded browser smoke scenario confirmed this sequence end-to-end: blocked trigger message → dialog choice sets flag → previously blocked transition trigger succeeds.
+- Added sprite folder support to the shared sprite schema so assets can be grouped with paths like `tiles/terrain` or `characters/player`.
+- Upgraded the Pixel Art Editor save UI so sprites can be saved with a folder path and project sprite lists show folder info.
+- Upgraded the hub asset panel with folder grouping headers, a folder filter dropdown, direct `Move` actions, and direct `Delete` actions for sprites.
+- Delete now also clears tile placements and character sprite assignments that referenced the removed sprite so the project stays consistent after cleanup.
+- Verification:
+- Syntax checked successfully for `project-utils.js`, `index.html`, and `pixel-art-creator.html`.
+- A seeded browser smoke scenario confirmed grouped folder rendering in the hub and successful sprite deletion with dependent map references removed.
+- Upgraded the hub asset library so dragging one sprite onto another auto-groups them. If the target sprite was ungrouped, a folder is auto-created from that target sprite name.
+- Folder headers are now clickable collapsible sections, and grouped sprites can also be dropped onto folder headers to move them there directly.
+- Added folder rename controls in the hub so an auto-created or existing folder can be renamed after regrouping.
+- Collapse state is stored locally in the browser UI so folders stay folded/unfolded without changing the project data itself.
+- Verification:
+- Syntax checked successfully for `index.html`.
+- A seeded browser smoke scenario confirmed auto-grouping, folder rename, and click-to-collapse / expand behavior in the hub asset library.
+- Added `scene-composer.html` as a new suite tool for building layered story scenes outside the tile map flow.
+- Scene Composer v1 supports scene lists, scene metadata, free object placement on a stage, sprite/character/text objects, object transforms, draw-order controls, and dialog/flag hooks.
+- Updated `project-utils.js` so scenes and scene objects are normalized through the shared schema, and updated the hub so Scene Composer is now marked ready and launchable.
+- Verification:
+- Syntax checked successfully for `project-utils.js`, `scene-composer.html`, and `index.html`.
+- A seeded browser smoke harness visually confirmed scene loading and stage rendering with sprite, character, and text objects on a local server.
+- Note: the stronger scripted pass/fail harness path remained flaky in this environment because the available Playwright setup here is limited to the screenshot-oriented fallback workflow, so Scene Composer verification for this pass was syntax + seeded visual smoke rather than assertion-driven browser automation.

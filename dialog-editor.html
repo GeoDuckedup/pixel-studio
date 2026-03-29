@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dialog Editor — RPG Studio</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;
+         font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+    #header{background:#16213e;border-bottom:1px solid #0f3460;padding:6px 12px;
+            display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+    #header h1{font-size:14px;font-weight:700;color:#e94560;letter-spacing:1px;white-space:nowrap}
+    .sep{width:1px;height:20px;background:#0f3460;flex-shrink:0}
+    button,select,input[type=text],textarea{
+      background:#0f3460;border:1px solid #1a4a7a;color:#e0e0e0;border-radius:5px;
+      padding:5px 8px;font-size:12px
+    }
+    button{cursor:pointer;transition:background .12s,border-color .12s;white-space:nowrap}
+    button:hover{background:#1a5a9a;border-color:#4a8aba}
+    button.green{background:#1a6a3a;border-color:#2a9a5a;color:#afffcf;font-weight:600}
+    button.green:hover{background:#2a8a4a}
+    button.red{background:#6a2020;border-color:#9a3030;color:#ffafaf}
+    button.red:hover{background:#8a3030}
+    button.ghost{background:transparent;border-style:dashed;color:#6f9fd0}
+    button.ghost:hover{background:#0f3460}
+    a.hub-link{color:#4a8aba;font-size:12px;text-decoration:none;padding:4px 8px;
+               background:#0f3460;border:1px solid #1a4a7a;border-radius:5px}
+    a.hub-link:hover{background:#1a5a9a;border-color:#4a8aba;color:#e0e0e0}
+
+    #main{display:flex;flex:1;overflow:hidden}
+    #dialog-list-panel{width:220px;background:#16213e;border-right:1px solid #0f3460;
+                       display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+    #dialog-list-header{padding:8px 10px 6px;border-bottom:1px solid #0f3460;display:flex;
+                        align-items:center;justify-content:space-between}
+    #dialog-list-header span{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#506070}
+    #dialog-count{font-size:11px;color:#4a8aba;font-weight:600}
+    #dialog-list{flex:1;overflow-y:auto;padding:6px}
+    #dialog-list::-webkit-scrollbar{width:4px}
+    #dialog-list::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:2px}
+    #btn-new-dialog{margin:6px}
+
+    .dialog-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;
+                 border:1px solid transparent;cursor:pointer;margin-bottom:3px;
+                 transition:border-color .1s,background .1s;position:relative}
+    .dialog-item:hover{background:#0f1f3a;border-color:#2a4a6a}
+    .dialog-item.active{background:#1a0f2a;border-color:#e94560}
+    .dialog-meta{flex:1;overflow:hidden}
+    .dialog-name{font-size:12px;color:#c0d0e0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dialog-sub{font-size:10px;color:#506070;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dialog-del{display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);
+                background:none;border:none;color:#506070;padding:2px 4px}
+    .dialog-item:hover .dialog-del{display:block}
+    .dialog-del:hover{color:#e94560;background:#2a0f1a}
+
+    #editor-center{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:18px}
+    #editor-center::-webkit-scrollbar{width:6px}
+    #editor-center::-webkit-scrollbar-thumb{background:#2a4a6a;border-radius:3px}
+    #empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#506070;text-align:center}
+    #empty-state .big{font-size:48px}
+    .section{background:#16213e;border:1px solid #1a3a6a;border-radius:8px;padding:14px 16px}
+    .section-title{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#506070;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+    .section-title::after{content:'';flex:1;height:1px;background:#1a3a6a}
+    .form-row{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+    .form-row:last-child{margin-bottom:0}
+    .form-row label{font-size:12px;color:#8090a0;min-width:84px;flex-shrink:0}
+    .form-row textarea{resize:vertical;min-height:84px;font-family:inherit;flex:1}
+    .form-row select,.form-row input[type=text],.form-row textarea{flex:1}
+
+    .nodes-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+    .nodes-list{display:flex;flex-wrap:wrap;gap:6px}
+    .node-chip{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:20px;border:1px solid #2a4a6a;background:#0f3460;color:#9fb5d0;cursor:pointer}
+    .node-chip.active{background:#e94560;border-color:#ff6a80;color:#fff}
+    .node-chip small{color:inherit;opacity:.7}
+
+    .choices-wrap{display:flex;flex-direction:column;gap:8px}
+    .choice-row{display:grid;grid-template-columns:minmax(0,1fr) 150px 110px 110px 110px 34px;gap:8px;align-items:center}
+    .choice-row button{padding:5px 0}
+    .choice-note{font-size:11px;color:#506070}
+
+    #preview-panel{width:290px;background:#16213e;border-left:1px solid #0f3460;
+                   display:flex;flex-direction:column;gap:10px;padding:12px 12px 10px;flex-shrink:0}
+    .preview-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#506070}
+    #preview-card{background:#111a31;border:1px solid #1a3a6a;border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:12px;min-height:240px}
+    #preview-speaker{font-size:11px;color:#e94560;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+    #preview-text{font-size:14px;line-height:1.6;color:#e0e0e0;white-space:pre-wrap}
+    #preview-choices{display:flex;flex-direction:column;gap:8px;margin-top:auto}
+    #preview-choices button{text-align:left}
+    #preview-meta{font-size:11px;color:#506070}
+    #preview-actions{display:flex;gap:8px}
+
+    #statusbar{background:#16213e;border-top:1px solid #0f3460;padding:3px 12px;font-size:11px;color:#506070;display:flex;gap:14px;flex-shrink:0}
+    #save-status{margin-left:auto;color:#2a6a4a}
+  </style>
+</head>
+<body>
+<div id="header">
+  <h1>&#128172; DIALOGS</h1>
+  <div class="sep"></div>
+  <button id="btn-header-new">+ New Dialog</button>
+  <div class="sep"></div>
+  <button id="btn-save" class="green">&#128190; Save All</button>
+  <a href="index.html" class="hub-link" target="_self">&#8592; Hub</a>
+</div>
+
+<div id="main">
+  <div id="dialog-list-panel">
+    <div id="dialog-list-header">
+      <span>Dialogs</span>
+      <span id="dialog-count">0</span>
+    </div>
+    <div id="dialog-list"></div>
+    <button id="btn-new-dialog" class="ghost">+ New Dialog</button>
+  </div>
+
+  <div id="editor-center">
+    <div id="empty-state">
+      <span class="big">&#128172;</span>
+      <p>No dialog selected.<br>Create a new dialog or select one from the list.</p>
+      <button id="btn-empty-new">+ New Dialog</button>
+    </div>
+  </div>
+
+  <div id="preview-panel">
+    <div class="preview-title">Conversation Preview</div>
+    <div id="preview-card">
+      <div id="preview-speaker">No Dialog</div>
+      <div id="preview-text">Create or select a dialog to preview it here.</div>
+      <div id="preview-choices"></div>
+    </div>
+    <div id="preview-meta">No dialog loaded</div>
+    <div id="preview-actions">
+      <button id="btn-preview-reset">Reset</button>
+      <button id="btn-preview-next">Continue</button>
+    </div>
+  </div>
+</div>
+
+<div id="statusbar">
+  <span id="st-dialog">No dialog loaded</span>
+  <span id="st-project">Project: —</span>
+  <span id="save-status"></span>
+</div>
+
+<script src="project-utils.js"></script>
+<script>
+'use strict';
+
+const { PROJECT_KEY, getProject, setProject, normalizeDialogData } = window.ProjectUtils;
+
+let dialogs = [];
+let selectedDialogId = null;
+let selectedNodeId = null;
+let previewNodeId = null;
+let saveDebounce = null;
+
+function newDialogId() {
+  return 'dialog_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+}
+
+function newNodeId() {
+  return 'node_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5);
+}
+
+function newChoiceId() {
+  return 'choice_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5);
+}
+
+function blankNode() {
+  return {
+    id: newNodeId(),
+    speakerType: 'narrator',
+    speakerCharacterId: '',
+    speakerName: '',
+    text: '',
+    next: '',
+    setFlag: '',
+    clearFlag: '',
+    choices: [],
+  };
+}
+
+function blankDialog() {
+  const node = blankNode();
+  return normalizeDialogData({
+    id: newDialogId(),
+    name: 'New Dialog',
+    characterId: '',
+    startNodeId: node.id,
+    nodes: [node],
+  }, 'New Dialog');
+}
+
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function getDialog(id) {
+  return dialogs.find(dialog => dialog.id === id);
+}
+
+function getNode(dialog, nodeId) {
+  return dialog?.nodes.find(node => node.id === nodeId);
+}
+
+function getCharacters() {
+  const project = getProject();
+  return project?.characters || [];
+}
+
+function getCharacterName(id) {
+  const char = getCharacters().find(character => character.id === id);
+  return char ? char.name : '';
+}
+
+function loadFromProject() {
+  const project = getProject();
+  dialogs = (project?.dialogs || []).map(dialog => normalizeDialogData(dialog, dialog?.name || 'Dialog'));
+  if (selectedDialogId && !dialogs.some(dialog => dialog.id === selectedDialogId)) selectedDialogId = null;
+  const selected = getDialog(selectedDialogId);
+  if (selected && (!selectedNodeId || !selected.nodes.some(node => node.id === selectedNodeId))) {
+    selectedNodeId = selected.startNodeId || selected.nodes[0]?.id || null;
+  }
+  if (selected && (!previewNodeId || !selected.nodes.some(node => node.id === previewNodeId))) {
+    previewNodeId = selected.startNodeId || selected.nodes[0]?.id || null;
+  }
+  document.getElementById('st-project').textContent = 'Project: ' + (project?.name || '—');
+  document.getElementById('dialog-count').textContent = dialogs.length;
+}
+
+function saveToProject() {
+  const project = getProject();
+  if (!project) { alert('No project found. Create one in the Hub first.'); return; }
+  project.dialogs = dialogs.map(dialog => normalizeDialogData(dialog, dialog.name));
+  setProject(project);
+  document.getElementById('save-status').textContent = '✓ Saved ' +
+    new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  setTimeout(() => {
+    document.getElementById('save-status').textContent = '';
+  }, 3000);
+}
+
+function scheduleSave() {
+  clearTimeout(saveDebounce);
+  saveDebounce = setTimeout(saveToProject, 500);
+}
+
+function buildDialogOptions(selectEl, currentValue, includeBlank = true) {
+  selectEl.innerHTML = includeBlank ? '<option value="">— none —</option>' : '';
+  dialogs.forEach(dialog => {
+    const option = document.createElement('option');
+    option.value = dialog.id;
+    option.textContent = dialog.name;
+    if (dialog.id === currentValue) option.selected = true;
+    selectEl.appendChild(option);
+  });
+}
+
+function buildCharacterOptions(selectEl, currentValue, includeNarrator = false) {
+  selectEl.innerHTML = '<option value="">— none —</option>';
+  if (includeNarrator) {
+    const narrator = document.createElement('option');
+    narrator.value = '__narrator__';
+    narrator.textContent = 'Narrator';
+    if (currentValue === '__narrator__') narrator.selected = true;
+    selectEl.appendChild(narrator);
+  }
+  getCharacters().forEach(character => {
+    const option = document.createElement('option');
+    option.value = character.id;
+    option.textContent = character.name;
+    if (character.id === currentValue) option.selected = true;
+    selectEl.appendChild(option);
+  });
+}
+
+function buildNodeOptions(selectEl, dialog, currentValue, includeBlank = true) {
+  selectEl.innerHTML = includeBlank ? '<option value="">End / none</option>' : '';
+  (dialog?.nodes || []).forEach(node => {
+    const option = document.createElement('option');
+    option.value = node.id;
+    option.textContent = node.id;
+    if (node.id === currentValue) option.selected = true;
+    selectEl.appendChild(option);
+  });
+}
+
+function buildDialogList() {
+  const list = document.getElementById('dialog-list');
+  list.innerHTML = '';
+  document.getElementById('dialog-count').textContent = dialogs.length;
+
+  if (!dialogs.length) {
+    list.innerHTML = '<div style="padding:12px 8px;text-align:center;color:#3a5a7a;font-size:11px">No dialogs yet.</div>';
+    return;
+  }
+
+  dialogs.forEach(dialog => {
+    const item = document.createElement('div');
+    item.className = 'dialog-item' + (dialog.id === selectedDialogId ? ' active' : '');
+
+    const meta = document.createElement('div');
+    meta.className = 'dialog-meta';
+    const title = document.createElement('div');
+    title.className = 'dialog-name';
+    title.textContent = dialog.name;
+    const sub = document.createElement('div');
+    sub.className = 'dialog-sub';
+    const linked = dialog.characterId ? getCharacterName(dialog.characterId) || dialog.characterId : 'Unassigned';
+    sub.textContent = `${dialog.nodes.length} node${dialog.nodes.length !== 1 ? 's' : ''} · ${linked}`;
+    meta.append(title, sub);
+
+    const del = document.createElement('button');
+    del.className = 'dialog-del';
+    del.textContent = '✕';
+    del.title = 'Delete dialog';
+    del.addEventListener('click', e => {
+      e.stopPropagation();
+      if (!confirm(`Delete "${dialog.name}"?`)) return;
+      dialogs = dialogs.filter(item => item.id !== dialog.id);
+      if (selectedDialogId === dialog.id) {
+        selectedDialogId = null;
+        selectedNodeId = null;
+        previewNodeId = null;
+      }
+      buildDialogList();
+      renderEditor();
+      renderPreview();
+      scheduleSave();
+    });
+
+    item.append(meta, del);
+    item.addEventListener('click', () => selectDialog(dialog.id));
+    list.appendChild(item);
+  });
+}
+
+function selectDialog(dialogId) {
+  selectedDialogId = dialogId;
+  const dialog = getDialog(dialogId);
+  selectedNodeId = dialog?.startNodeId || dialog?.nodes[0]?.id || null;
+  previewNodeId = selectedNodeId;
+  buildDialogList();
+  renderEditor();
+  renderPreview();
+}
+
+function ensureDialogConsistency(dialog) {
+  const nodeIds = dialog.nodes.map(node => node.id);
+  if (!nodeIds.includes(dialog.startNodeId)) dialog.startNodeId = nodeIds[0] || '';
+  dialog.nodes.forEach(node => {
+    if (node.next && !nodeIds.includes(node.next)) node.next = '';
+    node.choices = node.choices.filter(choice => typeof choice.text === 'string');
+    node.choices.forEach(choice => {
+      if (choice.next && !nodeIds.includes(choice.next)) choice.next = '';
+    });
+  });
+}
+
+function createDialog() {
+  const dialog = blankDialog();
+  dialogs.push(dialog);
+  selectedDialogId = dialog.id;
+  selectedNodeId = dialog.startNodeId;
+  previewNodeId = dialog.startNodeId;
+  buildDialogList();
+  renderEditor();
+  renderPreview();
+  scheduleSave();
+}
+
+function createNode() {
+  const dialog = getDialog(selectedDialogId);
+  if (!dialog) return;
+  const node = blankNode();
+  dialog.nodes.push(node);
+  if (!dialog.startNodeId) dialog.startNodeId = node.id;
+  ensureDialogConsistency(dialog);
+  selectedNodeId = node.id;
+  previewNodeId = dialog.startNodeId;
+  renderEditor();
+  renderPreview();
+  scheduleSave();
+}
+
+function deleteNode(nodeId) {
+  const dialog = getDialog(selectedDialogId);
+  if (!dialog || dialog.nodes.length === 1) return;
+  const node = getNode(dialog, nodeId);
+  if (!confirm(`Delete node "${node?.id}"?`)) return;
+  dialog.nodes = dialog.nodes.filter(item => item.id !== nodeId);
+  dialog.nodes.forEach(item => {
+    if (item.next === nodeId) item.next = '';
+    item.choices.forEach(choice => {
+      if (choice.next === nodeId) choice.next = '';
+    });
+  });
+  if (dialog.startNodeId === nodeId) dialog.startNodeId = dialog.nodes[0].id;
+  selectedNodeId = dialog.nodes[0].id;
+  previewNodeId = dialog.startNodeId;
+  ensureDialogConsistency(dialog);
+  renderEditor();
+  renderPreview();
+  scheduleSave();
+}
+
+function speakerLabel(node) {
+  if (!node) return '';
+  if (node.speakerType === 'character') return getCharacterName(node.speakerCharacterId) || 'Character';
+  if (node.speakerType === 'custom') return node.speakerName || 'Custom Speaker';
+  return 'Narrator';
+}
+
+function renderEditor() {
+  const center = document.getElementById('editor-center');
+  const dialog = getDialog(selectedDialogId);
+
+  if (!dialog) {
+    center.innerHTML = `
+      <div id="empty-state">
+        <span class="big">&#128172;</span>
+        <p>No dialog selected.<br>Create a new dialog or select one from the list.</p>
+        <button id="btn-empty-new">+ New Dialog</button>
+      </div>`;
+    document.getElementById('btn-empty-new').addEventListener('click', createDialog);
+    document.getElementById('st-dialog').textContent = 'No dialog loaded';
+    return;
+  }
+
+  ensureDialogConsistency(dialog);
+  const node = getNode(dialog, selectedNodeId) || dialog.nodes[0];
+  selectedNodeId = node.id;
+
+  center.innerHTML = `
+    <div class="section">
+      <div class="section-title">Dialog</div>
+      <div class="form-row">
+        <label>Name</label>
+        <input type="text" id="dlg-name" value="${esc(dialog.name)}" placeholder="Dialog name">
+      </div>
+      <div class="form-row">
+        <label>Character</label>
+        <select id="dlg-character"></select>
+      </div>
+      <div class="form-row">
+        <label>Start Node</label>
+        <select id="dlg-start-node"></select>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Nodes</div>
+      <div class="nodes-head">
+        <div class="choice-note">Create nodes, then link them with the Next field or branching choices.</div>
+        <button id="btn-add-node" class="ghost">+ Add Node</button>
+      </div>
+      <div class="nodes-list" id="node-list"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Selected Node</div>
+      <div class="form-row">
+        <label>Node ID</label>
+        <input type="text" value="${esc(node.id)}" disabled>
+      </div>
+      <div class="form-row">
+        <label>Speaker Type</label>
+        <select id="node-speaker-type">
+          <option value="narrator"${node.speakerType === 'narrator' ? ' selected' : ''}>Narrator</option>
+          <option value="character"${node.speakerType === 'character' ? ' selected' : ''}>Character</option>
+          <option value="custom"${node.speakerType === 'custom' ? ' selected' : ''}>Custom</option>
+        </select>
+      </div>
+      <div class="form-row" id="speaker-character-row" style="display:${node.speakerType === 'character' ? 'flex' : 'none'}">
+        <label>Character</label>
+        <select id="node-speaker-character"></select>
+      </div>
+      <div class="form-row" id="speaker-name-row" style="display:${node.speakerType === 'custom' ? 'flex' : 'none'}">
+        <label>Speaker Name</label>
+        <input type="text" id="node-speaker-name" value="${esc(node.speakerName)}" placeholder="Custom speaker name">
+      </div>
+      <div class="form-row">
+        <label>Text</label>
+        <textarea id="node-text" placeholder="What appears in the dialog box...">${esc(node.text)}</textarea>
+      </div>
+      <div class="form-row">
+        <label>Next</label>
+        <select id="node-next"></select>
+      </div>
+      <div class="form-row">
+        <label>Set Flag</label>
+        <input type="text" id="node-set-flag" value="${esc(node.setFlag || '')}" placeholder="quest_started">
+      </div>
+      <div class="form-row">
+        <label>Clear Flag</label>
+        <input type="text" id="node-clear-flag" value="${esc(node.clearFlag || '')}" placeholder="door_locked">
+      </div>
+      <div class="form-row">
+        <label>Actions</label>
+        <div style="display:flex;gap:8px;flex:1">
+          <button id="btn-node-duplicate">Duplicate</button>
+          <button id="btn-node-delete" class="red"${dialog.nodes.length === 1 ? ' disabled' : ''}>Delete Node</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Choices</div>
+      <div class="choices-wrap" id="choice-list"></div>
+      <button id="btn-add-choice" class="ghost" style="margin-top:10px">+ Add Choice</button>
+      <div class="choice-note" style="margin-top:10px">Use <code>flag_name</code> or <code>!flag_name</code> in Require to gate a choice. Set/Clear apply when that choice is picked.</div>
+    </div>`;
+
+  const dialogCharSelect = document.getElementById('dlg-character');
+  buildCharacterOptions(dialogCharSelect, dialog.characterId);
+  dialogCharSelect.addEventListener('change', () => {
+    dialog.characterId = dialogCharSelect.value;
+    buildDialogList();
+    scheduleSave();
+  });
+
+  const startNodeSelect = document.getElementById('dlg-start-node');
+  buildNodeOptions(startNodeSelect, dialog, dialog.startNodeId, false);
+  startNodeSelect.addEventListener('change', () => {
+    dialog.startNodeId = startNodeSelect.value;
+    previewNodeId = dialog.startNodeId;
+    renderPreview();
+    scheduleSave();
+  });
+
+  document.getElementById('dlg-name').addEventListener('input', e => {
+    dialog.name = e.target.value || 'New Dialog';
+    buildDialogList();
+    document.getElementById('st-dialog').textContent = `Editing: ${dialog.name}`;
+    scheduleSave();
+  });
+
+  document.getElementById('btn-add-node').addEventListener('click', createNode);
+
+  const nodeList = document.getElementById('node-list');
+  dialog.nodes.forEach(item => {
+    const chip = document.createElement('button');
+    chip.className = 'node-chip' + (item.id === selectedNodeId ? ' active' : '');
+    chip.innerHTML = `${esc(item.id)} <small>${esc(speakerLabel(item))}</small>`;
+    chip.addEventListener('click', () => {
+      selectedNodeId = item.id;
+      renderEditor();
+    });
+    nodeList.appendChild(chip);
+  });
+
+  const speakerTypeSelect = document.getElementById('node-speaker-type');
+  const speakerCharRow = document.getElementById('speaker-character-row');
+  const speakerNameRow = document.getElementById('speaker-name-row');
+  speakerTypeSelect.addEventListener('change', () => {
+    node.speakerType = speakerTypeSelect.value;
+    if (node.speakerType !== 'character') node.speakerCharacterId = '';
+    if (node.speakerType !== 'custom') node.speakerName = '';
+    renderEditor();
+    renderPreview();
+    scheduleSave();
+  });
+
+  const speakerCharacterSelect = document.getElementById('node-speaker-character');
+  if (speakerCharacterSelect) {
+    buildCharacterOptions(speakerCharacterSelect, node.speakerCharacterId);
+    speakerCharacterSelect.addEventListener('change', () => {
+      node.speakerCharacterId = speakerCharacterSelect.value;
+      renderPreview();
+      scheduleSave();
+    });
+  }
+
+  const speakerNameInput = document.getElementById('node-speaker-name');
+  if (speakerNameInput) {
+    speakerNameInput.addEventListener('input', () => {
+      node.speakerName = speakerNameInput.value;
+      renderPreview();
+      scheduleSave();
+    });
+  }
+
+  document.getElementById('node-text').addEventListener('input', e => {
+    node.text = e.target.value;
+    renderPreview();
+    scheduleSave();
+  });
+
+  const nextSelect = document.getElementById('node-next');
+  buildNodeOptions(nextSelect, dialog, node.next, true);
+  nextSelect.addEventListener('change', () => {
+    node.next = nextSelect.value;
+    renderPreview();
+    scheduleSave();
+  });
+
+  document.getElementById('node-set-flag').addEventListener('change', e => {
+    node.setFlag = e.target.value.trim();
+    scheduleSave();
+  });
+
+  document.getElementById('node-clear-flag').addEventListener('change', e => {
+    node.clearFlag = e.target.value.trim();
+    scheduleSave();
+  });
+
+  document.getElementById('btn-node-duplicate').addEventListener('click', () => {
+    const duplicate = JSON.parse(JSON.stringify(node));
+    duplicate.id = newNodeId();
+    duplicate.choices = duplicate.choices.map(choice => ({ ...choice, id: newChoiceId() }));
+    dialog.nodes.push(duplicate);
+    selectedNodeId = duplicate.id;
+    ensureDialogConsistency(dialog);
+    renderEditor();
+    scheduleSave();
+  });
+
+  document.getElementById('btn-node-delete').addEventListener('click', () => deleteNode(node.id));
+
+  const choiceList = document.getElementById('choice-list');
+  if (!node.choices.length) {
+    choiceList.innerHTML = '<div class="choice-note">No choices yet. Use `Next` above for a simple linear line, or add choices to branch.</div>';
+  } else {
+    node.choices.forEach((choice, index) => {
+      const row = document.createElement('div');
+      row.className = 'choice-row';
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = choice.text;
+      input.placeholder = `Choice ${index + 1}`;
+      input.addEventListener('input', () => {
+        choice.text = input.value;
+        renderPreview();
+        scheduleSave();
+      });
+
+      const select = document.createElement('select');
+      buildNodeOptions(select, dialog, choice.next, true);
+      select.addEventListener('change', () => {
+        choice.next = select.value;
+        renderPreview();
+        scheduleSave();
+      });
+
+      const require = document.createElement('input');
+      require.type = 'text';
+      require.value = choice.requiredFlag || '';
+      require.placeholder = 'Require';
+      require.addEventListener('change', () => {
+        choice.requiredFlag = require.value.trim();
+        renderPreview();
+        scheduleSave();
+      });
+
+      const setFlag = document.createElement('input');
+      setFlag.type = 'text';
+      setFlag.value = choice.setFlag || '';
+      setFlag.placeholder = 'Set';
+      setFlag.addEventListener('change', () => {
+        choice.setFlag = setFlag.value.trim();
+        scheduleSave();
+      });
+
+      const clearFlag = document.createElement('input');
+      clearFlag.type = 'text';
+      clearFlag.value = choice.clearFlag || '';
+      clearFlag.placeholder = 'Clear';
+      clearFlag.addEventListener('change', () => {
+        choice.clearFlag = clearFlag.value.trim();
+        scheduleSave();
+      });
+
+      const remove = document.createElement('button');
+      remove.className = 'red';
+      remove.textContent = '✕';
+      remove.title = 'Delete choice';
+      remove.addEventListener('click', () => {
+        node.choices.splice(index, 1);
+        renderEditor();
+        renderPreview();
+        scheduleSave();
+      });
+
+      row.append(input, select, require, setFlag, clearFlag, remove);
+      choiceList.appendChild(row);
+    });
+  }
+
+  document.getElementById('btn-add-choice').addEventListener('click', () => {
+    node.choices.push({
+      id: newChoiceId(),
+      text: `Choice ${node.choices.length + 1}`,
+      next: node.next || '',
+      requiredFlag: '',
+      setFlag: '',
+      clearFlag: '',
+    });
+    renderEditor();
+    renderPreview();
+    scheduleSave();
+  });
+
+  document.getElementById('st-dialog').textContent = `Editing: ${dialog.name}`;
+}
+
+function renderPreview() {
+  const dialog = getDialog(selectedDialogId);
+  const speaker = document.getElementById('preview-speaker');
+  const text = document.getElementById('preview-text');
+  const choices = document.getElementById('preview-choices');
+  const meta = document.getElementById('preview-meta');
+  const nextBtn = document.getElementById('btn-preview-next');
+
+  if (!dialog) {
+    speaker.textContent = 'No Dialog';
+    text.textContent = 'Create or select a dialog to preview it here.';
+    choices.innerHTML = '';
+    meta.textContent = 'No dialog loaded';
+    nextBtn.disabled = true;
+    return;
+  }
+
+  const node = getNode(dialog, previewNodeId || dialog.startNodeId) || dialog.nodes[0];
+  previewNodeId = node?.id || null;
+  speaker.textContent = speakerLabel(node);
+  text.textContent = node?.text || '(empty line)';
+  choices.innerHTML = '';
+
+  if (node?.choices?.length) {
+    node.choices.forEach(choice => {
+      const button = document.createElement('button');
+      button.textContent = choice.text || 'Continue';
+      button.addEventListener('click', () => {
+        previewNodeId = choice.next || null;
+        renderPreview();
+      });
+      choices.appendChild(button);
+    });
+    nextBtn.disabled = true;
+  } else {
+    nextBtn.disabled = !node?.next;
+  }
+
+  meta.textContent = `${dialog.name} · ${dialog.nodes.length} node${dialog.nodes.length !== 1 ? 's' : ''} · start ${dialog.startNodeId}`;
+}
+
+document.getElementById('btn-preview-reset').addEventListener('click', () => {
+  const dialog = getDialog(selectedDialogId);
+  previewNodeId = dialog?.startNodeId || dialog?.nodes[0]?.id || null;
+  renderPreview();
+});
+
+document.getElementById('btn-preview-next').addEventListener('click', () => {
+  const dialog = getDialog(selectedDialogId);
+  const node = getNode(dialog, previewNodeId);
+  if (!node?.next) return;
+  previewNodeId = node.next;
+  renderPreview();
+});
+
+document.getElementById('btn-new-dialog').addEventListener('click', createDialog);
+document.getElementById('btn-header-new').addEventListener('click', createDialog);
+document.getElementById('btn-empty-new').addEventListener('click', createDialog);
+document.getElementById('btn-save').addEventListener('click', saveToProject);
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    e.preventDefault();
+    saveToProject();
+  }
+});
+
+window.addEventListener('storage', e => {
+  if (e.key === PROJECT_KEY) {
+    loadFromProject();
+    buildDialogList();
+    renderEditor();
+    renderPreview();
+  }
+});
+
+loadFromProject();
+buildDialogList();
+renderEditor();
+renderPreview();
+</script>
+</body>
+</html>
