@@ -180,6 +180,7 @@ const state = {
   moveCooldownMs: 0,
   movePulseMs: 0,
   triggerCooldownMs: 0,
+  animTimeMs: 0,
   flags: {},
   toast: '',
   toastMs: 0,
@@ -307,9 +308,14 @@ function isSolidTile(map, x, y) {
 
 function getTileSprite(name) {
   if (!name || !state.project?.sprites?.[name]) return null;
-  if (spriteCache.has(name)) return spriteCache.get(name);
   const sprite = state.project.sprites[name];
-  const frame = sprite.frames?.[0] || [];
+  const frameCount = Math.max(1, sprite.frames?.length || 1);
+  const fi = frameCount > 1
+    ? Math.floor(state.animTimeMs / (1000 / Math.max(1, sprite.fps || 8))) % frameCount
+    : 0;
+  const cacheKey = frameCount > 1 ? name + ':' + fi : name;
+  if (spriteCache.has(cacheKey)) return spriteCache.get(cacheKey);
+  const frame = sprite.frames?.[fi] || sprite.frames?.[0] || [];
   const offscreen = document.createElement('canvas');
   offscreen.width = sprite.gridW;
   offscreen.height = sprite.gridH;
@@ -319,7 +325,7 @@ function getTileSprite(name) {
     offctx.fillStyle = color;
     offctx.fillRect(index % sprite.gridW, Math.floor(index / sprite.gridW), 1, 1);
   });
-  spriteCache.set(name, offscreen);
+  spriteCache.set(cacheKey, offscreen);
   return offscreen;
 }
 
@@ -333,9 +339,9 @@ function getCharacterSprite(character) {
   const sprite = state.project.sprites?.[spriteName];
   if (!sprite) return null;
   const frameCount = Math.max(1, sprite.frames?.length || 1);
-  const animationMs = moving ? state.movePulseMs : performance.now();
+  const msPerFrame = 1000 / Math.max(1, sprite.fps || 8);
   const frameIndex = frameCount > 1
-    ? Math.floor((animationMs / 140) % frameCount)
+    ? Math.floor(state.animTimeMs / msPerFrame) % frameCount
     : 0;
   const cacheKey = spriteName + ':' + frameIndex;
   if (spriteCache.has(cacheKey)) return spriteCache.get(cacheKey);
@@ -858,6 +864,7 @@ function update(deltaMs) {
     state.toastMs = Math.max(0, state.toastMs - deltaMs);
     if (state.toastMs === 0) clearToast();
   }
+  state.animTimeMs += deltaMs;
 }
 
 function loop(now) {

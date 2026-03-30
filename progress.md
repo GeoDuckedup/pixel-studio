@@ -71,3 +71,51 @@ Original prompt: make me a program for a simple pixel art creator where the unto
 - Syntax checked successfully for `project-utils.js`, `scene-composer.html`, and `index.html`.
 - A seeded browser smoke harness visually confirmed scene loading and stage rendering with sprite, character, and text objects on a local server.
 - Note: the stronger scripted pass/fail harness path remained flaky in this environment because the available Playwright setup here is limited to the screenshot-oriented fallback workflow, so Scene Composer verification for this pass was syntax + seeded visual smoke rather than assertion-driven browser automation.
+- Enhanced project portability in `index.html`:
+  - Added **Merge** button (⊕) and `mergeIntoProject()` logic — imports sprites, maps, characters, dialogs, and scenes from a `.rpgproject` file into the current project without replacing it. Sprite name conflicts are auto-resolved by appending `_2`, `_3`, etc.; character/dialog/scene ID conflicts are deduplicated the same way.
+  - Added **safety guard on Open** — now prompts for confirmation if the current project has any content (sprites, maps, characters, or dialogs), matching the guard already on New Project.
+  - Added **toast notification system** — slides in from bottom-right for success/error/info events. Triggered on: New Project created, file Opened, file Saved (shows filename), Merge completed (shows counts per asset type), and error states.
+  - Added **Ctrl+S / Cmd+S keyboard shortcut** to trigger Save Project.
+  - Verification: inline script syntax checked successfully with `node --input-type=module` + `new Function()` parse. All new elements confirmed present in rendered HTML.
+- Added standalone game export to `index.html`:
+  - New **Export Game** button (▶) in the hub header, separated from Save Project.
+  - `exportGame()` fetches `game-preview.html` and `project-utils.js` at export time, inlines both into a single self-contained HTML file, and embeds the current project as a JSON constant that overrides `window.ProjectUtils.getProject` — no server or `localStorage` required to play.
+  - Dev-only elements stripped from the export: Hub navigation link, Reload Project button, its event listener, and the `localStorage` storage-sync listener.
+  - Page title, footer attribution, and close-tag escaping (`<\/script>` guard) all handled correctly in the output.
+  - Verification: syntax checked (1 clean block, 26 KB). End-to-end export simulation confirmed all 10 checks pass: title updated, utils inlined, data embedded, `getProject` overridden, hub/reload/storage-listener removed, attribution updated, valid HTML output (~51 KB for a blank project). All replacement targets confirmed present in `game-preview.html`.
+- Fixed sprite animation in `game-preview.html`:
+  - Added `animTimeMs` to `state` — a monotonic counter incremented in `update(deltaMs)` that gives all sprites a single consistent shared clock.
+  - Fixed `getCharacterSprite`: replaced hardcoded 140 ms/frame with `1000 / sprite.fps` so each sprite animates at the FPS set in the Pixel Art Editor. Replaced the `movePulseMs`-based walk timer (which only cycled ~1.5 frames per step) with `state.animTimeMs` for smooth continuous cycling; walk/idle sprite switching is still driven by `movePulseMs > 0` as before.
+  - Fixed `getTileSprite`: was always frozen on frame 0. Now reads `sprite.fps` and `state.animTimeMs` to select the correct frame, enabling animated tiles (water, fire, etc.). Cache key updated to `name:frameIndex` for multi-frame tiles; single-frame tiles still use just `name` for zero overhead.
+  - Verification: syntax checked (1 block, 25 904 chars). All 7 targeted checks pass: animTimeMs present, incremented, fps used in both functions, frame-keyed cache in getTileSprite, animTimeMs used in both functions, hardcoded 140 gone.
+2026-03-30
+- Updated the hub’s top-left branding only in `index.html`: `RPG STUDIO` → `PIXEL STUDIO`, subtitle → `Pixel Art Suite`. Intentionally did not rename files, storage keys, or project extensions.
+- Updated `pixel-art-creator.html` fill tool button to use a bucket-style SVG icon instead of the plain square glyph.
+- Added Sprite Editor `Select` mode MVP in `pixel-art-creator.html`:
+  - New `Select (V)` toolbar tool plus a dedicated selection overlay canvas.
+  - Rectangular marquee selection on the current frame with visible highlight.
+  - Drag selected pixels to reposition them.
+  - Clipboard-style editing: copy (`Ctrl/Cmd+C`), cut (`Ctrl/Cmd+X`), paste (`Ctrl/Cmd+V`), delete/backspace.
+  - Arrow-key nudging for selected pixels.
+  - Added `Sel → Next` button in the timeline bar to copy the selected region into the next animation frame at the same coordinates.
+  - Selection state is cleared on destructive editor resets like new/import/load/size-change so clipboard/selection dimensions do not get out of sync.
+- Also wired the existing undo/redo toolbar buttons in the sprite editor so selection-driven mutations can be reversed from the UI, not just keyboard shortcuts.
+- Verification:
+  - `pixel-art-creator.html` inline script syntax checked successfully with `node --input-type=module`.
+  - Browser smoke screenshot passed via `npx playwright screenshot` against a local `python3 -m http.server` instance; updated toolbar and timeline controls rendered correctly.
+  - A deeper scripted Playwright interaction run was attempted for draw → select → move → copy-to-next-frame, but the ad-hoc `npx -p playwright node ...` path hung in this environment before producing a result, so interaction verification for this pass is code review + syntax + load smoke rather than a full automated assertion run.
+
+- Added a detailed color picker popover to `pixel-art-creator.html` that opens from the main color swatch and provides a hue wheel plus saturation/value square for precise color picking.
+- Hex input, swatch preview, HSV readout, and canvas color state now stay synced; `Esc` and outside-click close the popover.
+- Verification: `pixel-art-creator.html` syntax checked successfully. Browser smoke screenshot confirmed the editor still loads after the picker UI additions.
+- Improved eyedropper behavior in `pixel-art-creator.html`: sampling a transparent pixel now switches the tool to eraser mode and updates the status bar to `Color: Transparent` instead of doing nothing.
+- Added the first real selection action bar in `pixel-art-creator.html`:
+  - Appears when a selection or clipboard is active.
+  - New actions: `Paste In Place`, `Flip H`, `Flip V`, `Rotate`, `Crop to Selection`, and `Deselect`.
+  - `Paste In Place` uses the clipboard’s original coordinates and is also available on `Ctrl/Cmd+Shift+V`.
+  - Flip/rotate operate on the selected pixels and keep the selection updated after the transform.
+  - `Crop to Selection` crops every frame to the current selection bounds, updates the canvas dimensions, and keeps the crop undoable.
+- Updated sprite-editor history snapshots to store `gridW/gridH` so crop and future size-changing selection transforms undo/redo correctly.
+- Verification:
+  - `pixel-art-creator.html` syntax checked successfully after the selection action pass.
+  - Browser smoke screenshot confirmed the editor still loads after adding the selection action bar and crop-aware history.

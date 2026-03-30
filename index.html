@@ -149,6 +149,19 @@
             font-size:11px;color:#2a3a5a;display:flex;gap:20px}
     #footer span{color:#3a4a6a}
     #last-saved{margin-left:auto}
+
+    /* ── Toast notifications ── */
+    #toast-container{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;
+                     gap:8px;z-index:9999;pointer-events:none}
+    .toast{background:#16213e;border:1px solid #1a3a6a;color:#c0d0e0;border-radius:8px;
+           padding:10px 16px;font-size:12px;font-weight:600;max-width:320px;
+           box-shadow:0 4px 16px rgba(0,0,0,0.5);
+           opacity:0;transform:translateY(8px);
+           transition:opacity .2s ease,transform .2s ease;pointer-events:auto}
+    .toast.toast-visible{opacity:1;transform:translateY(0)}
+    .toast.toast-success{border-color:#2a6a3a;color:#afffcf;background:#0e2218}
+    .toast.toast-error{border-color:#7a2a2a;color:#ffafaf;background:#220e0e}
+    .toast.toast-info{border-color:#1a4a7a;color:#a0c8ff;background:#0e1a2e}
   </style>
 </head>
 <body>
@@ -158,8 +171,8 @@
   <div id="logo">
     <span class="icon">&#9876;</span>
     <div>
-      <h1>RPG STUDIO</h1>
-      <span>Game Creation Suite</span>
+      <h1>PIXEL STUDIO</h1>
+      <span>Pixel Art Suite</span>
     </div>
   </div>
   <div class="header-sep"></div>
@@ -171,8 +184,13 @@
 
   <button class="hbtn red"   id="btn-new-project">&#43; New Project</button>
   <button class="hbtn"       id="btn-open-project">&#128194; Open</button>
+  <button class="hbtn"       id="btn-merge-project">&#8853; Merge</button>
   <button class="hbtn green" id="btn-save-project">&#128190; Save Project</button>
-  <input type="file" id="project-file-input" accept=".rpgproject,.json" style="display:none">
+  <input type="file" id="project-file-input"       accept=".rpgproject,.json" style="display:none">
+  <input type="file" id="project-merge-file-input" accept=".rpgproject,.json" style="display:none">
+
+  <div class="header-sep"></div>
+  <button class="hbtn" id="btn-export-game">&#9654; Export Game</button>
 
   <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
     <span id="last-saved" style="font-size:11px;color:#3a4a6a"></span>
@@ -295,6 +313,9 @@
   </div>
 
 </div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
 
 <!-- Footer -->
 <div id="footer">
@@ -780,22 +801,56 @@ document.getElementById('project-name').addEventListener('input', e => {
 });
 
 // ══════════════════════════════════════════
-//  NEW / OPEN / SAVE
+//  TOAST NOTIFICATIONS
 // ══════════════════════════════════════════
+
+function showToast(message, type = 'info', duration = 3500) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => toast.classList.add('toast-visible'));
+  });
+  setTimeout(() => {
+    toast.classList.remove('toast-visible');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// ══════════════════════════════════════════
+//  NEW / OPEN / SAVE / MERGE
+// ══════════════════════════════════════════
+
+function projectHasContent(project) {
+  if (!project) return false;
+  return (
+    Object.keys(project.sprites || {}).length > 0 ||
+    (project.maps || []).length > 0 ||
+    (project.characters || []).length > 0 ||
+    (project.dialogs || []).length > 0
+  );
+}
 
 document.getElementById('btn-new-project').addEventListener('click', () => {
   const project = getProject();
-  if (project && (Object.keys(project.sprites||{}).length > 0 ||
-      (project.maps||[]).length > 0)) {
+  if (projectHasContent(project)) {
     if (!confirm('Create a new project? The current project will be replaced in memory.\n\nMake sure you\'ve saved your current project file first.')) return;
   }
   const name = prompt('Project name:', 'Untitled Game') || 'Untitled Game';
   setProject(blankProject(name));
   refreshUI();
+  showToast(`Project "${name}" created`, 'success');
 });
 
-document.getElementById('btn-open-project').addEventListener('click', () =>
-  document.getElementById('project-file-input').click());
+document.getElementById('btn-open-project').addEventListener('click', () => {
+  const project = getProject();
+  if (projectHasContent(project)) {
+    if (!confirm('Open a project file? This will replace your current project in memory.\n\nMake sure you\'ve saved your current project file first.')) return;
+  }
+  document.getElementById('project-file-input').click();
+});
 
 document.getElementById('project-file-input').addEventListener('change', e => {
   const file = e.target.files[0]; if (!file) return;
@@ -803,9 +858,10 @@ document.getElementById('project-file-input').addEventListener('change', e => {
   reader.onload = ev => {
     let project;
     try { project = JSON.parse(ev.target.result); }
-    catch { alert('Could not read file. Make sure it\'s a valid .rpgproject file.'); return; }
+    catch { showToast('Could not read file — make sure it\'s a valid .rpgproject file.', 'error', 5000); return; }
     setProject(normalizeProject(project));
     refreshUI();
+    showToast(`Opened "${project.name || file.name}"`, 'success');
   };
   reader.readAsText(file);
   e.target.value = '';
@@ -813,16 +869,231 @@ document.getElementById('project-file-input').addEventListener('change', e => {
 
 document.getElementById('btn-save-project').addEventListener('click', () => {
   const project = getProject();
-  if (!project) { alert('No project to save. Create a new project first.'); return; }
+  if (!project) { showToast('No project to save. Create a new project first.', 'error'); return; }
   const json = JSON.stringify(project, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   const safeName = (project.name || 'untitled').replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
-  a.download = safeName + '.rpgproject';
+  const filename = safeName + '.rpgproject';
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(a.href);
+  showToast(`Saved "${filename}"`, 'success');
 });
+
+// ── Merge ──────────────────────────────────
+
+document.getElementById('btn-merge-project').addEventListener('click', () => {
+  const project = getProject();
+  if (!project) { showToast('No active project. Create or open a project first.', 'error'); return; }
+  document.getElementById('project-merge-file-input').click();
+});
+
+document.getElementById('project-merge-file-input').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    let incoming;
+    try { incoming = normalizeProject(JSON.parse(ev.target.result)); }
+    catch { showToast('Could not read file — make sure it\'s a valid .rpgproject file.', 'error', 5000); return; }
+    mergeIntoProject(incoming);
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+function uniqueName(base, existingSet) {
+  if (!existingSet.has(base)) return base;
+  let i = 2;
+  while (existingSet.has(`${base}_${i}`)) i++;
+  return `${base}_${i}`;
+}
+
+function mergeIntoProject(incoming) {
+  const project = getProject();
+  if (!project) return;
+
+  let spriteCount = 0, mapCount = 0, charCount = 0, dialogCount = 0, sceneCount = 0;
+
+  // Sprites — rename on key conflict
+  const existingSprites = new Set(Object.keys(project.sprites || {}));
+  Object.entries(incoming.sprites || {}).forEach(([name, data]) => {
+    const finalName = uniqueName(name, existingSprites);
+    existingSprites.add(finalName);
+    project.sprites[finalName] = data;
+    spriteCount++;
+  });
+
+  // Maps — always append (no unique key constraint)
+  (incoming.maps || []).forEach(map => {
+    project.maps.push(map);
+    mapCount++;
+  });
+
+  // Characters — dedupe by id
+  const existingCharIds = new Set((project.characters || []).map(c => c.id));
+  (incoming.characters || []).forEach(char => {
+    const id = uniqueName(char.id, existingCharIds);
+    existingCharIds.add(id);
+    project.characters.push({ ...char, id });
+    charCount++;
+  });
+
+  // Dialogs — dedupe by id
+  const existingDialogIds = new Set((project.dialogs || []).map(d => d.id));
+  (incoming.dialogs || []).forEach(dialog => {
+    const id = uniqueName(dialog.id, existingDialogIds);
+    existingDialogIds.add(id);
+    project.dialogs.push({ ...dialog, id });
+    dialogCount++;
+  });
+
+  // Scenes — dedupe by id
+  const existingSceneIds = new Set((project.scenes || []).map(s => s.id));
+  (incoming.scenes || []).forEach(scene => {
+    const id = uniqueName(scene.id, existingSceneIds);
+    existingSceneIds.add(id);
+    project.scenes.push({ ...scene, id });
+    sceneCount++;
+  });
+
+  setProject(project);
+  refreshUI();
+
+  const parts = [];
+  if (spriteCount)  parts.push(`${spriteCount} sprite${spriteCount  !== 1 ? 's' : ''}`);
+  if (mapCount)     parts.push(`${mapCount} map${mapCount           !== 1 ? 's' : ''}`);
+  if (charCount)    parts.push(`${charCount} character${charCount   !== 1 ? 's' : ''}`);
+  if (dialogCount)  parts.push(`${dialogCount} dialog${dialogCount  !== 1 ? 's' : ''}`);
+  if (sceneCount)   parts.push(`${sceneCount} scene${sceneCount     !== 1 ? 's' : ''}`);
+
+  const summary = parts.length
+    ? `Merged from "${incoming.name}": ${parts.join(', ')}`
+    : `Nothing new to merge from "${incoming.name}"`;
+  showToast(summary, parts.length ? 'success' : 'info', 5000);
+}
+
+// ── Ctrl+S shortcut ────────────────────────
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    document.getElementById('btn-save-project').click();
+  }
+});
+
+// ══════════════════════════════════════════
+//  EXPORT STANDALONE GAME
+// ══════════════════════════════════════════
+
+document.getElementById('btn-export-game').addEventListener('click', exportGame);
+
+async function exportGame() {
+  const project = getProject();
+  if (!project) {
+    showToast('No project to export. Create a project first.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-export-game');
+  btn.disabled = true;
+  btn.textContent = '⏳ Building…';
+  showToast('Building standalone game…', 'info', 15000);
+
+  try {
+    const [previewHtml, utilsJs] = await Promise.all([
+      fetch('game-preview.html').then(r => {
+        if (!r.ok) throw new Error('Could not load game-preview.html');
+        return r.text();
+      }),
+      fetch('project-utils.js').then(r => {
+        if (!r.ok) throw new Error('Could not load project-utils.js');
+        return r.text();
+      }),
+    ]);
+
+    const gameName = project.name || 'Untitled Game';
+
+    // The closing tag sequence must not appear literally in this source file or
+    // the browser HTML parser would terminate this <script> block early.
+    // Splitting across concatenation makes the source safe while evaluating
+    // to the correct string value at runtime.
+    const ETAG = '<\/' + 'script>';   // evaluates to: <\/script>
+    const STAG = '<' + 'script';      // evaluates to: <script (no closing >)
+    const safeJson = JSON.stringify(project).replace(new RegExp(ETAG, 'gi'), '<\\/' + 'script>');
+    const safeTitle = gameName.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    let html = previewHtml;
+
+    // 1. Update page title
+    html = html.replace(
+      '<title>Game Preview — RPG Studio</title>',
+      `<title>${safeTitle}</title>`
+    );
+
+    // 2. Inline project-utils.js then immediately override getProject so it
+    //    returns the embedded project object instead of reading localStorage.
+    html = html.replace(
+      STAG + ' src="project-utils.js">' + ETAG,
+      [
+        STAG + '>\n' + utilsJs + '\n' + ETAG,
+        STAG + '>\n/* Embedded project: ' + safeTitle + ' */\n' +
+          '(function(){\n  var _p=' + safeJson + ';\n' +
+          '  window.ProjectUtils.getProject=function(){\n' +
+          '    return window.ProjectUtils.normalizeProject(_p);\n' +
+          '  };\n})();\n' + ETAG,
+      ].join('\n')
+    );
+
+    // 3. Remove the Hub navigation link (and its preceding separator)
+    html = html.replace(
+      `  <div class="sep"></div>\n  <div class="tg">\n    <a href="index.html" class="hub-link" target="_self">&#8592; Hub</a>\n  </div>`,
+      ''
+    );
+
+    // 4. Remove the "Reload Project" button from the toolbar
+    html = html.replace(
+      `    <button id="btn-reload" class="green">Reload Project</button>`,
+      ''
+    );
+
+    // 5. Remove the btn-reload event listener
+    html = html.replace(
+      `document.getElementById('btn-reload').addEventListener('click', () => {\n  loadProjectState();\n  showToast('Project reloaded');\n});`,
+      ''
+    );
+
+    // 6. Remove the localStorage storage listener (no suite to sync with in standalone mode)
+    html = html.replace(
+      `window.addEventListener('storage', e => {\n  if (e.key === PROJECT_KEY) loadProjectState();\n});`,
+      ''
+    );
+
+    // 7. Update the footer attribution line
+    html = html.replace(
+      `<span id="status-info">Preview loads project data from the suite.</span>`,
+      `<span id="status-info">${safeTitle} — made with RPG Studio</span>`
+    );
+
+    // Download as a single self-contained HTML file
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const safeName = gameName.replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
+    const filename = `${safeName}.html`;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+
+    showToast(`Exported "${filename}" — open in any browser to play!`, 'success', 6000);
+  } catch (err) {
+    showToast(`Export failed: ${err.message}`, 'error', 7000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ Export Game';
+  }
+}
 
 // ══════════════════════════════════════════
 //  OPEN TOOL
