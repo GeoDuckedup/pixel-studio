@@ -119,3 +119,13 @@ Original prompt: make me a program for a simple pixel art creator where the unto
 - Verification:
   - `pixel-art-creator.html` syntax checked successfully after the selection action pass.
   - Browser smoke screenshot confirmed the editor still loads after adding the selection action bar and crop-aware history.
+- Expanded sprite selection in `pixel-art-creator.html` beyond rectangle-only selection:
+  - Added visible selection mode buttons for `Rect`, `Lasso`, and `Wand` when the Select tool is active.
+  - Reworked selection internals to carry per-pixel masks so irregular selections can still be moved, copied, pasted, flipped, rotated, cropped, and copied to the next frame.
+  - Added freeform lasso selection that follows the dragged path and fills the enclosed region on mouse-up.
+  - Added magic-wand selection that grabs the contiguous region of the clicked color, including transparent areas when clicked.
+  - Updated the selection overlay to outline irregular shapes instead of only drawing a bounding box.
+  - Added quick selection-mode shortcuts while Select is active: `1` = Rect, `2` = Lasso, `3` = Wand.
+- Verification:
+  - `pixel-art-creator.html` syntax checked successfully after the lasso / wand selection pass.
+  - Browser smoke screenshot confirmed the editor still loads after the new selection-mode UI and masked-selection changes.

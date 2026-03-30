@@ -15,6 +15,9 @@
     #header h1{font-size:14px;font-weight:700;color:#e94560;letter-spacing:1px;white-space:nowrap}
     .sep{width:1px;height:20px;background:#0f3460;flex-shrink:0}
     .tool-group{display:flex;gap:3px;align-items:center}
+    #select-mode-group{display:none}
+    #select-mode-group.visible{display:flex}
+    #select-mode-group button{padding:3px 8px;font-size:11px}
 
     button{background:#0f3460;border:1px solid #1a4a7a;color:#c0d0e0;border-radius:5px;
            padding:4px 9px;cursor:pointer;font-size:12px;transition:background .12s,border-color .12s;white-space:nowrap}
@@ -197,6 +200,11 @@
     <button class="icon-btn"        data-tool="picker"  data-tip="Eyedropper (I)">&#128449;</button>
     <button class="icon-btn"        data-tool="rect"    data-tip="Rectangle (R)">&#9645;</button>
     <button class="icon-btn"        data-tool="line"    data-tip="Line (L)">&#11835;</button>
+  </div>
+  <div id="select-mode-group" class="tool-group">
+    <button type="button" class="active" data-selection-mode="rect" data-tip="Rectangular marquee selection">Rect</button>
+    <button type="button" data-selection-mode="lasso" data-tip="Freeform lasso selection">Lasso</button>
+    <button type="button" data-selection-mode="wand" data-tip="Magic wand contiguous selection">Wand</button>
   </div>
   <div class="sep"></div>
 
@@ -486,9 +494,11 @@ const state = {
   onionSkin: false,
   mirror: false,
   tilePreview: false,
+  selectionMode: 'rect',
   selection: null,
   selectionDraft: null,
   selectionLifted: null,
+  selectionPath: null,
   clipboard: null,
   colorHsv: { h: 344, s: 0.69, v: 0.91 },
   colorPickerDrag: '',
@@ -812,15 +822,147 @@ function normalizeRect(x0, y0, x1, y1) {
   return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
 }
 
+function fullMask(w, h) {
+  return new Array(w * h).fill(true);
+}
+
+function cloneMask(mask, w, h) {
+  if (Array.isArray(mask) && mask.length === w * h) return [...mask];
+  return fullMask(w, h);
+}
+
+function maskHasAny(mask) {
+  return Array.isArray(mask) && mask.some(Boolean);
+}
+
+function selectionHasCells(selection) {
+  return Boolean(selection && selection.w > 0 && selection.h > 0 && maskHasAny(selection.mask));
+}
+
+function createSelection(x, y, w, h, mask) {
+  const normalizedMask = cloneMask(mask, w, h);
+  if (!maskHasAny(normalizedMask)) return null;
+  return { x, y, w, h, mask: normalizedMask };
+}
+
+function createRectSelection(rect) {
+  return createSelection(rect.x, rect.y, rect.w, rect.h, fullMask(rect.w, rect.h));
+}
+
+function pointInSelection(x, y, selection) {
+  if (!selectionHasCells(selection)) return false;
+  if (x < selection.x || y < selection.y || x >= selection.x + selection.w || y >= selection.y + selection.h) return false;
+  return Boolean(selection.mask[(y - selection.y) * selection.w + (x - selection.x)]);
+}
+
+function selectionFromCellSet(cells) {
+  if (!cells || cells.size === 0) return null;
+  let minX = state.gridW;
+  let minY = state.gridH;
+  let maxX = -1;
+  let maxY = -1;
+  const points = [];
+  cells.forEach(key => {
+    const [xText, yText] = key.split(',');
+    const x = Number(xText);
+    const y = Number(yText);
+    if (!inBounds(x, y)) return;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+    points.push([x, y]);
+  });
+  if (!points.length) return null;
+  const w = maxX - minX + 1;
+  const h = maxY - minY + 1;
+  const mask = new Array(w * h).fill(false);
+  points.forEach(([x, y]) => {
+    mask[(y - minY) * w + (x - minX)] = true;
+  });
+  return createSelection(minX, minY, w, h, mask);
+}
+
+function rasterizeSelectionPath(points, closed = false) {
+  const cells = new Set();
+  if (!Array.isArray(points) || !points.length) return cells;
+  points.forEach(([x, y]) => {
+    if (inBounds(x, y)) cells.add(`${x},${y}`);
+  });
+  for (let i = 1; i < points.length; i++) {
+    linePixels(points[i - 1][0], points[i - 1][1], points[i][0], points[i][1]).forEach(([x, y]) => {
+      if (inBounds(x, y)) cells.add(`${x},${y}`);
+    });
+  }
+  if (closed && points.length > 2) {
+    linePixels(points[points.length - 1][0], points[points.length - 1][1], points[0][0], points[0][1]).forEach(([x, y]) => {
+      if (inBounds(x, y)) cells.add(`${x},${y}`);
+    });
+  }
+  return cells;
+}
+
+function pointInPolygon(px, py, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x;
+    const yi = polygon[i].y;
+    const xj = polygon[j].x;
+    const yj = polygon[j].y;
+    const intersects = ((yi > py) !== (yj > py)) &&
+      (px < ((xj - xi) * (py - yi)) / ((yj - yi) || 1e-9) + xi);
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+function buildLassoSelection(points) {
+  if (!Array.isArray(points) || !points.length) return null;
+  const cells = rasterizeSelectionPath(points, points.length > 2);
+  if (points.length > 2) {
+    const xs = points.map(([x]) => x);
+    const ys = points.map(([, y]) => y);
+    const minX = clampX(Math.min(...xs));
+    const maxX = clampX(Math.max(...xs));
+    const minY = clampY(Math.min(...ys));
+    const maxY = clampY(Math.max(...ys));
+    const polygon = points.map(([x, y]) => ({ x: x + 0.5, y: y + 0.5 }));
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        if (pointInPolygon(x + 0.5, y + 0.5, polygon)) cells.add(`${x},${y}`);
+      }
+    }
+  }
+  return selectionFromCellSet(cells);
+}
+
+function buildWandSelection(x, y) {
+  if (!inBounds(x, y)) return null;
+  const frame = curFrame();
+  const target = getP(frame, x, y);
+  const cells = new Set();
+  const stack = [[x, y]];
+  const visited = new Set();
+  while (stack.length) {
+    const [cx, cy] = stack.pop();
+    const key = `${cx},${cy}`;
+    if (!inBounds(cx, cy) || visited.has(key)) continue;
+    visited.add(key);
+    if (getP(frame, cx, cy) !== target) continue;
+    cells.add(key);
+    stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+  }
+  return selectionFromCellSet(cells);
+}
+
 function selectionBounds() {
   return state.selectionLifted
-    ? { x: state.selectionLifted.x, y: state.selectionLifted.y, w: state.selectionLifted.w, h: state.selectionLifted.h }
+    ? { x: state.selectionLifted.x, y: state.selectionLifted.y, w: state.selectionLifted.w, h: state.selectionLifted.h, mask: state.selectionLifted.mask }
     : (state.selectionDraft || state.selection);
 }
 
 function hasSelection() {
-  const sel = selectionBounds();
-  return Boolean(sel && sel.w > 0 && sel.h > 0);
+  return selectionHasCells(selectionBounds());
 }
 
 function pointInRect(x, y, rect) {
@@ -839,6 +981,20 @@ function extractRegion(frame, rect) {
   return out;
 }
 
+function extractSelectionPixels(frame, selection) {
+  const out = new Array(selection.w * selection.h).fill(null);
+  for (let y = 0; y < selection.h; y++) {
+    for (let x = 0; x < selection.w; x++) {
+      const offset = y * selection.w + x;
+      if (!selection.mask[offset]) continue;
+      const sx = selection.x + x;
+      const sy = selection.y + y;
+      if (inBounds(sx, sy)) out[offset] = frame[idx(sx, sy)];
+    }
+  }
+  return out;
+}
+
 function clearRegion(frame, rect) {
   for (let y = 0; y < rect.h; y++) {
     for (let x = 0; x < rect.w; x++) {
@@ -849,19 +1005,33 @@ function clearRegion(frame, rect) {
   }
 }
 
-function stampRegion(frame, rect, pixels) {
-  for (let y = 0; y < rect.h; y++) {
-    for (let x = 0; x < rect.w; x++) {
-      const sx = rect.x + x;
-      const sy = rect.y + y;
-      if (!inBounds(sx, sy)) continue;
-      frame[idx(sx, sy)] = pixels[y * rect.w + x] ?? null;
+function clearSelectionRegion(frame, selection) {
+  for (let y = 0; y < selection.h; y++) {
+    for (let x = 0; x < selection.w; x++) {
+      const offset = y * selection.w + x;
+      if (!selection.mask[offset]) continue;
+      const sx = selection.x + x;
+      const sy = selection.y + y;
+      if (inBounds(sx, sy)) frame[idx(sx, sy)] = null;
     }
   }
 }
 
-function regionHasContent(pixels) {
-  return Array.isArray(pixels) && pixels.some(color => color !== null);
+function stampRegion(frame, rect, pixels, mask = null) {
+  for (let y = 0; y < rect.h; y++) {
+    for (let x = 0; x < rect.w; x++) {
+      const offset = y * rect.w + x;
+      if (mask && !mask[offset]) continue;
+      const sx = rect.x + x;
+      const sy = rect.y + y;
+      if (!inBounds(sx, sy)) continue;
+      frame[idx(sx, sy)] = pixels[offset] ?? null;
+    }
+  }
+}
+
+function selectionDataHasCells(selectionData) {
+  return Boolean(selectionData && selectionData.w > 0 && selectionData.h > 0 && maskHasAny(selectionData.mask));
 }
 
 function clampSelectionOrigin(x, y, w, h) {
@@ -875,6 +1045,7 @@ function clearSelection() {
   state.selection = null;
   state.selectionDraft = null;
   state.selectionLifted = null;
+  state.selectionPath = null;
 }
 
 function resetSelectionState(options = {}) {
@@ -885,7 +1056,7 @@ function resetSelectionState(options = {}) {
 function updateSelectionControls() {
   const actions = document.getElementById('selection-actions');
   const selectionActive = hasSelection();
-  const clipboardActive = Boolean(state.clipboard && regionHasContent(state.clipboard.pixels));
+  const clipboardActive = selectionDataHasCells(state.clipboard);
   if (actions) actions.classList.toggle('visible', selectionActive || clipboardActive);
   const btn = document.getElementById('btn-copy-next');
   if (btn) btn.disabled = !(selectionActive && state.currentFrame < state.frames.length - 1);
@@ -965,11 +1136,13 @@ function drawGridLines(ps) {
 
 function renderRegion(ctx, region, ps, alpha = 1) {
   if (!region) return;
-  const { x: ox, y: oy, w, h, pixels } = region;
+  const { x: ox, y: oy, w, h, pixels, mask } = region;
   if (alpha < 1) ctx.globalAlpha = alpha;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const color = pixels[y * w + x];
+      const offset = y * w + x;
+      if (mask && !mask[offset]) continue;
+      const color = pixels[offset];
       if (!color) continue;
       ctx.fillStyle = color;
       ctx.fillRect((ox + x) * ps, (oy + y) * ps, ps, ps);
@@ -980,19 +1153,48 @@ function renderRegion(ctx, region, ps, alpha = 1) {
 
 function drawSelectionOverlay(ps) {
   sctx.clearRect(0, 0, selectionCanvas.width, selectionCanvas.height);
-  const rect = selectionBounds();
-  if (!rect) return;
-  const px = rect.x * ps;
-  const py = rect.y * ps;
-  const pw = rect.w * ps;
-  const ph = rect.h * ps;
+  const selection = selectionBounds();
+  if (!selectionHasCells(selection)) return;
   sctx.fillStyle = 'rgba(122, 202, 255, 0.12)';
-  sctx.fillRect(px, py, pw, ph);
+  sctx.strokeStyle = '#9ad8ff';
+  sctx.lineWidth = 2;
   sctx.setLineDash([6, 4]);
   sctx.lineDashOffset = -2;
-  sctx.lineWidth = 2;
-  sctx.strokeStyle = '#9ad8ff';
-  sctx.strokeRect(px + 1, py + 1, Math.max(0, pw - 2), Math.max(0, ph - 2));
+  for (let y = 0; y < selection.h; y++) {
+    for (let x = 0; x < selection.w; x++) {
+      const offset = y * selection.w + x;
+      if (!selection.mask[offset]) continue;
+      const worldX = selection.x + x;
+      const worldY = selection.y + y;
+      const px = worldX * ps;
+      const py = worldY * ps;
+      sctx.fillRect(px, py, ps, ps);
+      if (worldX === 0 || !pointInSelection(worldX - 1, worldY, selection)) {
+        sctx.beginPath();
+        sctx.moveTo(px + 1, py + 1);
+        sctx.lineTo(px + 1, py + ps - 1);
+        sctx.stroke();
+      }
+      if (worldX === state.gridW - 1 || !pointInSelection(worldX + 1, worldY, selection)) {
+        sctx.beginPath();
+        sctx.moveTo(px + ps - 1, py + 1);
+        sctx.lineTo(px + ps - 1, py + ps - 1);
+        sctx.stroke();
+      }
+      if (worldY === 0 || !pointInSelection(worldX, worldY - 1, selection)) {
+        sctx.beginPath();
+        sctx.moveTo(px + 1, py + 1);
+        sctx.lineTo(px + ps - 1, py + 1);
+        sctx.stroke();
+      }
+      if (worldY === state.gridH - 1 || !pointInSelection(worldX, worldY + 1, selection)) {
+        sctx.beginPath();
+        sctx.moveTo(px + 1, py + ps - 1);
+        sctx.lineTo(px + ps - 1, py + ps - 1);
+        sctx.stroke();
+      }
+    }
+  }
   sctx.setLineDash([]);
 }
 
@@ -1078,6 +1280,7 @@ function render(previewPixels) {
       w: state.selectionLifted.w,
       h: state.selectionLifted.h,
       pixels: state.selectionLifted.pixels,
+      mask: state.selectionLifted.mask,
     }, ps, 0.96);
   }
   renderOnion();
@@ -1228,7 +1431,8 @@ function copySelection() {
     y: sel.y,
     w: sel.w,
     h: sel.h,
-    pixels: extractRegion(curFrame(), sel),
+    mask: cloneMask(sel.mask, sel.w, sel.h),
+    pixels: extractSelectionPixels(curFrame(), sel),
   };
   updateSelectionControls();
   return true;
@@ -1237,7 +1441,7 @@ function copySelection() {
 function deleteSelection() {
   const sel = state.selection;
   if (!sel) return false;
-  clearRegion(curFrame(), sel);
+  clearSelectionRegion(curFrame(), sel);
   saveHistory();
   render();
   return true;
@@ -1249,35 +1453,35 @@ function cutSelection() {
 }
 
 function resolvePasteSource() {
-  if (state.clipboard && regionHasContent(state.clipboard.pixels)) {
+  if (selectionDataHasCells(state.clipboard)) {
     return {
       x: state.clipboard.x ?? 0,
       y: state.clipboard.y ?? 0,
       w: state.clipboard.w,
       h: state.clipboard.h,
+      mask: cloneMask(state.clipboard.mask, state.clipboard.w, state.clipboard.h),
       pixels: [...state.clipboard.pixels],
     };
   }
-  if (state.selectionLifted && regionHasContent(state.selectionLifted.pixels)) {
+  if (selectionDataHasCells(state.selectionLifted)) {
     return {
       x: state.selectionLifted.x,
       y: state.selectionLifted.y,
       w: state.selectionLifted.w,
       h: state.selectionLifted.h,
+      mask: cloneMask(state.selectionLifted.mask, state.selectionLifted.w, state.selectionLifted.h),
       pixels: [...state.selectionLifted.pixels],
     };
   }
   if (state.selection) {
-    const pixels = extractRegion(curFrame(), state.selection);
-    if (regionHasContent(pixels)) {
-      return {
-        x: state.selection.x,
-        y: state.selection.y,
-        w: state.selection.w,
-        h: state.selection.h,
-        pixels,
-      };
-    }
+    return {
+      x: state.selection.x,
+      y: state.selection.y,
+      w: state.selection.w,
+      h: state.selection.h,
+      mask: cloneMask(state.selection.mask, state.selection.w, state.selection.h),
+      pixels: extractSelectionPixels(curFrame(), state.selection),
+    };
   }
   return null;
 }
@@ -1291,8 +1495,8 @@ function pasteClipboard(targetRect) {
     const y = anchor ? anchor.y + 1 : 0;
     return { ...clampSelectionOrigin(x, y, source.w, source.h), w: source.w, h: source.h };
   })();
-  stampRegion(curFrame(), rect, source.pixels);
-  state.selection = { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
+  stampRegion(curFrame(), rect, source.pixels, source.mask);
+  state.selection = createSelection(rect.x, rect.y, rect.w, rect.h, source.mask);
   state.selectionDraft = null;
   state.selectionLifted = null;
   saveHistory();
@@ -1301,7 +1505,7 @@ function pasteClipboard(targetRect) {
 }
 
 function pasteInPlace() {
-  if (!(state.clipboard && regionHasContent(state.clipboard.pixels))) return false;
+  if (!selectionDataHasCells(state.clipboard)) return false;
   const origin = clampSelectionOrigin(state.clipboard.x ?? 0, state.clipboard.y ?? 0, state.clipboard.w, state.clipboard.h);
   return pasteClipboard({ x: origin.x, y: origin.y, w: state.clipboard.w, h: state.clipboard.h });
 }
@@ -1311,10 +1515,10 @@ function nudgeSelection(dx, dy) {
   if (!sel) return false;
   const next = clampSelectionOrigin(sel.x + dx, sel.y + dy, sel.w, sel.h);
   if (next.x === sel.x && next.y === sel.y) return false;
-  const pixels = extractRegion(curFrame(), sel);
-  clearRegion(curFrame(), sel);
-  stampRegion(curFrame(), { x: next.x, y: next.y, w: sel.w, h: sel.h }, pixels);
-  state.selection = { x: next.x, y: next.y, w: sel.w, h: sel.h };
+  const pixels = extractSelectionPixels(curFrame(), sel);
+  clearSelectionRegion(curFrame(), sel);
+  stampRegion(curFrame(), { x: next.x, y: next.y, w: sel.w, h: sel.h }, pixels, sel.mask);
+  state.selection = createSelection(next.x, next.y, sel.w, sel.h, sel.mask);
   saveHistory();
   render();
   return true;
@@ -1323,8 +1527,8 @@ function nudgeSelection(dx, dy) {
 function copySelectionToNextFrame() {
   const sel = state.selection;
   if (!sel || state.currentFrame >= state.frames.length - 1) return false;
-  const pixels = extractRegion(curFrame(), sel);
-  stampRegion(state.frames[state.currentFrame + 1], sel, pixels);
+  const pixels = extractSelectionPixels(curFrame(), sel);
+  stampRegion(state.frames[state.currentFrame + 1], sel, pixels, sel.mask);
   saveHistory();
   render();
   return true;
@@ -1333,55 +1537,67 @@ function copySelectionToNextFrame() {
 function transformSelectionPixels(transformer) {
   const sel = state.selection;
   if (!sel) return false;
-  const sourcePixels = extractRegion(curFrame(), sel);
-  const next = transformer(sourcePixels, sel);
-  if (!next || !Array.isArray(next.pixels) || !(next.w > 0) || !(next.h > 0)) return false;
-  clearRegion(curFrame(), sel);
+  const sourcePixels = extractSelectionPixels(curFrame(), sel);
+  const next = transformer(sourcePixels, cloneMask(sel.mask, sel.w, sel.h), sel);
+  if (!next || !Array.isArray(next.pixels) || !Array.isArray(next.mask) || !(next.w > 0) || !(next.h > 0)) return false;
+  clearSelectionRegion(curFrame(), sel);
   const origin = clampSelectionOrigin(sel.x, sel.y, next.w, next.h);
-  stampRegion(curFrame(), { x: origin.x, y: origin.y, w: next.w, h: next.h }, next.pixels);
-  state.selection = { x: origin.x, y: origin.y, w: next.w, h: next.h };
+  stampRegion(curFrame(), { x: origin.x, y: origin.y, w: next.w, h: next.h }, next.pixels, next.mask);
+  state.selection = createSelection(origin.x, origin.y, next.w, next.h, next.mask);
   saveHistory();
   render();
   return true;
 }
 
 function flipSelectionHorizontal() {
-  return transformSelectionPixels((pixels, sel) => {
+  return transformSelectionPixels((pixels, mask, sel) => {
     const out = new Array(sel.w * sel.h).fill(null);
+    const outMask = new Array(sel.w * sel.h).fill(false);
     for (let y = 0; y < sel.h; y++) {
       for (let x = 0; x < sel.w; x++) {
-        out[y * sel.w + x] = pixels[y * sel.w + (sel.w - 1 - x)];
+        const dest = y * sel.w + x;
+        const src = y * sel.w + (sel.w - 1 - x);
+        out[dest] = pixels[src];
+        outMask[dest] = mask[src];
       }
     }
-    return { w: sel.w, h: sel.h, pixels: out };
+    return { w: sel.w, h: sel.h, pixels: out, mask: outMask };
   });
 }
 
 function flipSelectionVertical() {
-  return transformSelectionPixels((pixels, sel) => {
+  return transformSelectionPixels((pixels, mask, sel) => {
     const out = new Array(sel.w * sel.h).fill(null);
+    const outMask = new Array(sel.w * sel.h).fill(false);
     for (let y = 0; y < sel.h; y++) {
       for (let x = 0; x < sel.w; x++) {
-        out[y * sel.w + x] = pixels[(sel.h - 1 - y) * sel.w + x];
+        const dest = y * sel.w + x;
+        const src = (sel.h - 1 - y) * sel.w + x;
+        out[dest] = pixels[src];
+        outMask[dest] = mask[src];
       }
     }
-    return { w: sel.w, h: sel.h, pixels: out };
+    return { w: sel.w, h: sel.h, pixels: out, mask: outMask };
   });
 }
 
 function rotateSelectionClockwise() {
-  return transformSelectionPixels((pixels, sel) => {
+  return transformSelectionPixels((pixels, mask, sel) => {
     const outW = sel.h;
     const outH = sel.w;
     const out = new Array(outW * outH).fill(null);
+    const outMask = new Array(outW * outH).fill(false);
     for (let y = 0; y < sel.h; y++) {
       for (let x = 0; x < sel.w; x++) {
         const nx = sel.h - 1 - y;
         const ny = x;
-        out[ny * outW + nx] = pixels[y * sel.w + x];
+        const src = y * sel.w + x;
+        const dest = ny * outW + nx;
+        out[dest] = pixels[src];
+        outMask[dest] = mask[src];
       }
     }
-    return { w: outW, h: outH, pixels: out };
+    return { w: outW, h: outH, pixels: out, mask: outMask };
   });
 }
 
@@ -1391,9 +1607,10 @@ function cropToSelection() {
   state.frames = state.frames.map(frame => extractRegion(frame, sel));
   state.gridW = sel.w;
   state.gridH = sel.h;
-  state.selection = { x: 0, y: 0, w: sel.w, h: sel.h };
+  state.selection = createRectSelection({ x: 0, y: 0, w: sel.w, h: sel.h });
   state.selectionDraft = null;
   state.selectionLifted = null;
+  state.selectionPath = null;
   resizeAllCanvases();
   syncCanvasSizeUi();
   saveHistory();
@@ -1422,32 +1639,51 @@ function applyDown(x, y, options = {}) {
     if (!inBounds(x, y)) {
       state.selection = null;
       state.selectionDraft = null;
+      state.selectionLifted = null;
+      state.selectionPath = null;
+      state.rectStart = null;
       render();
       return;
     }
-    if (state.selection && pointInRect(x, y, state.selection)) {
+    if (state.selection && pointInSelection(x, y, state.selection)) {
       const sel = state.selection;
+      state.selectionDraft = null;
+      state.selectionPath = null;
+      state.rectStart = null;
       state.selectionLifted = {
         x: sel.x,
         y: sel.y,
         w: sel.w,
         h: sel.h,
+        mask: cloneMask(sel.mask, sel.w, sel.h),
         originX: sel.x,
         originY: sel.y,
         offsetX: x - sel.x,
         offsetY: y - sel.y,
         duplicate: duplicateSelection,
-        pixels: extractRegion(curFrame(), sel),
+        pixels: extractSelectionPixels(curFrame(), sel),
       };
       if (!duplicateSelection) {
-        clearRegion(curFrame(), sel);
+        clearSelectionRegion(curFrame(), sel);
         state.didMutate = true;
       }
     } else {
       state.selection = null;
       state.selectionLifted = null;
-      state.selectionDraft = { x, y, w: 1, h: 1 };
-      state.rectStart = [x, y];
+      if (state.selectionMode === 'wand') {
+        state.selectionDraft = null;
+        state.selectionPath = null;
+        state.rectStart = null;
+        state.selection = buildWandSelection(x, y);
+      } else if (state.selectionMode === 'lasso') {
+        state.selectionPath = [[x, y]];
+        state.selectionDraft = buildLassoSelection(state.selectionPath);
+        state.rectStart = null;
+      } else {
+        state.selectionPath = null;
+        state.selectionDraft = createRectSelection({ x, y, w: 1, h: 1 });
+        state.rectStart = [x, y];
+      }
     }
     render();
   }
@@ -1472,9 +1708,17 @@ function applyMove(x, y) {
       lifted.x = next.x;
       lifted.y = next.y;
       render();
+    } else if (state.selectionPath) {
+      if (!inBounds(x, y)) return;
+      const last = state.selectionPath[state.selectionPath.length - 1];
+      if (!last || last[0] !== x || last[1] !== y) {
+        state.selectionPath.push([x, y]);
+        state.selectionDraft = buildLassoSelection(state.selectionPath);
+        render();
+      }
     } else if (state.rectStart && inBounds(x, y)) {
       const [sx, sy] = state.rectStart;
-      state.selectionDraft = normalizeRect(sx, sy, x, y);
+      state.selectionDraft = createRectSelection(normalizeRect(sx, sy, x, y));
       render();
     }
   }
@@ -1499,22 +1743,33 @@ function applyUp(x, y) {
       const lifted = state.selectionLifted;
       const target = { x: lifted.x, y: lifted.y, w: lifted.w, h: lifted.h };
       if (lifted.duplicate && target.x === lifted.originX && target.y === lifted.originY) {
-        state.selection = { x: lifted.originX, y: lifted.originY, w: lifted.w, h: lifted.h };
+        state.selection = createSelection(lifted.originX, lifted.originY, lifted.w, lifted.h, lifted.mask);
         state.selectionLifted = null;
         state.selectionDraft = null;
+        state.selectionPath = null;
         render();
       } else {
-        stampRegion(curFrame(), target, lifted.pixels);
-        state.selection = target;
+        stampRegion(curFrame(), target, lifted.pixels, lifted.mask);
+        state.selection = createSelection(target.x, target.y, target.w, target.h, lifted.mask);
         state.selectionLifted = null;
         state.selectionDraft = null;
+        state.selectionPath = null;
         if (lifted.duplicate) state.didMutate = true;
         render();
       }
+    } else if (state.selectionPath) {
+      if (inBounds(x, y)) {
+        const last = state.selectionPath[state.selectionPath.length - 1];
+        if (!last || last[0] !== x || last[1] !== y) state.selectionPath.push([x, y]);
+      }
+      state.selection = buildLassoSelection(state.selectionPath);
+      state.selectionDraft = null;
+      state.selectionPath = null;
+      render();
     } else if (state.rectStart) {
       const [sx, sy] = state.rectStart;
       if (inBounds(sx, sy)) {
-        state.selection = normalizeRect(sx, sy, inBounds(x, y) ? x : sx, inBounds(x, y) ? y : sy);
+        state.selection = createRectSelection(normalizeRect(sx, sy, inBounds(x, y) ? x : sx, inBounds(x, y) ? y : sy));
       } else {
         state.selection = null;
       }
@@ -1564,18 +1819,42 @@ wrapper.addEventListener('mouseleave', () => {
 //  TOOL BUTTONS
 // ══════════════════════════════════════════════════════
 
+function selectionModeLabel(mode = state.selectionMode) {
+  return ({ rect: 'Rect', lasso: 'Lasso', wand: 'Wand' })[mode] || mode;
+}
+
+function updateSelectionModeControls() {
+  const group = document.getElementById('select-mode-group');
+  if (group) group.classList.toggle('visible', state.tool === 'select');
+  document.querySelectorAll('[data-selection-mode]').forEach(button => {
+    button.classList.toggle('active', button.dataset.selectionMode === state.selectionMode);
+  });
+}
+
 function setActiveTool(name) {
   state.tool = name;
   document.querySelectorAll('[data-tool]').forEach(b =>
     b.classList.toggle('active', b.dataset.tool===name));
-  const names={select:'Select',pencil:'Pencil',eraser:'Eraser',fill:'Fill',picker:'Eyedropper',rect:'Rectangle',line:'Line'};
+  updateSelectionModeControls();
+  const names={select:`Select (${selectionModeLabel()})`,pencil:'Pencil',eraser:'Eraser',fill:'Fill',picker:'Eyedropper',rect:'Rectangle',line:'Line'};
   document.getElementById('status-tool').textContent='Tool: '+(names[name]||name);
-  const cursors={select:'default',pencil:'crosshair',eraser:'cell',fill:'copy',picker:'default',rect:'crosshair',line:'crosshair'};
+  const selectCursor = state.selectionMode === 'wand' || state.selectionMode === 'lasso' ? 'crosshair' : 'default';
+  const cursors={select:selectCursor,pencil:'crosshair',eraser:'cell',fill:'copy',picker:'default',rect:'crosshair',line:'crosshair'};
   wrapper.style.cursor = cursors[name]||'crosshair';
   updateColorStatus();
 }
 document.querySelectorAll('[data-tool]').forEach(b =>
   b.addEventListener('click', () => setActiveTool(b.dataset.tool)));
+
+function setSelectionMode(mode) {
+  state.selectionMode = mode;
+  if (state.tool === 'select') setActiveTool('select');
+  else updateSelectionModeControls();
+}
+
+document.querySelectorAll('[data-selection-mode]').forEach(button => {
+  button.addEventListener('click', () => setSelectionMode(button.dataset.selectionMode));
+});
 
 // ══════════════════════════════════════════════════════
 //  COLOR CONTROLS
@@ -2047,6 +2326,9 @@ document.addEventListener('keydown', e => {
   if (key==='arrowright') { if (nudgeSelection(1, 0)) e.preventDefault(); return; }
   const toolMap={v:'select',p:'pencil',e:'eraser',f:'fill',i:'picker',r:'rect',l:'line'};
   if (toolMap[key]) { setActiveTool(toolMap[key]); return; }
+  if (state.tool === 'select' && key === '1') { setSelectionMode('rect'); return; }
+  if (state.tool === 'select' && key === '2') { setSelectionMode('lasso'); return; }
+  if (state.tool === 'select' && key === '3') { setSelectionMode('wand'); return; }
   if (key==='g') btnGrid.click();
   if (key==='m') btnMirror.click();
   if (key==='o') btnOnion.click();
@@ -2237,6 +2519,7 @@ resizeAllCanvases();
 resetHistory();
 rebuildTimeline();
 refreshDetailedColorPicker();
+updateSelectionModeControls();
 render();
 setActiveTool('pencil');
 syncCanvasSizeUi();
